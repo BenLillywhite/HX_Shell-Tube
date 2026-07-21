@@ -8,15 +8,15 @@ An interactive, high-performance engineering suite for designing, sizing, and si
 
 ---
 
-## 🌟 Live Demo (Instant Browser Access)
+## Live Demo (Instant Browser Access)
 
 This application runs **100% client-side** using standard ES modules and HTML5 Canvas. Anyone can use the live tool directly in their browser without installing any software or running a local server:
 
-👉 **[Launch Interactive Live Demo](https://benlillywhite.github.io/HX_Shell-Tube/)** *(Or click the GitHub Pages link in the repository header)*
+**[Launch Interactive Live Demo](https://benlillywhite.github.io/HX_Shell-Tube/)** *(Or click the GitHub Pages link in the repository header)*
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - **Thermodynamic $\text{NTU}-\varepsilon$ Calculation Engine**:
   - Full implementation of the Number of Transfer Units ($\text{NTU}$) - Effectiveness ($\varepsilon$) method for counter-flow, parallel-flow, and multi-pass shell and tube configurations.
@@ -43,7 +43,7 @@ This application runs **100% client-side** using standard ES modules and HTML5 C
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 - **Frontend Core**: Standard HTML5, CSS3, JavaScript (ES6+ Modules)
 - **UI Framework**: Vue.js 3 (ESM Browser Build - zero build step required)
@@ -53,7 +53,7 @@ This application runs **100% client-side** using standard ES modules and HTML5 C
 
 ---
 
-## 📁 Architecture & File Structure
+## Architecture & File Structure
 
 ```text
 HX-MODEL/
@@ -70,7 +70,7 @@ HX-MODEL/
 
 ---
 
-## 🚀 Local Development Setup
+## Local Development Setup
 
 ### Method 1: Instant Static Server (No Installation Needed)
 Since the app uses standard ES Modules, you can open `index.html` directly in any web browser or use a simple HTTP server:
@@ -90,7 +90,7 @@ chmod +x start_server.sh
 
 ---
 
-## ⚙️ Deploying to GitHub Pages
+## Deploying to GitHub Pages
 
 To publish your live demo on GitHub Pages:
 1. Push your repository to GitHub.
@@ -103,6 +103,6 @@ To publish your live demo on GitHub Pages:
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.

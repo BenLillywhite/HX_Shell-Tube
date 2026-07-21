@@ -1,8 +1,8 @@
 # Shell & Tube Heat Exchanger (S&T HX) Design & Simulation Suite
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=github)](index.html)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=github)](https://benlillywhite.github.io/HX_Shell-Tube/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
-[![Technology](https://img.shields.io/badge/Tech-Vue.js%203%20%7C%20HTML5%20Canvas%20%7C%20Django-0052CC?style=for-the-badge)](index.html)
+[![Technology](https://img.shields.io/badge/Tech-Vue.js%203%20%7C%20HTML5%20Canvas%20%7C%20Django-0052CC?style=for-the-badge)](https://benlillywhite.github.io/HX_Shell-Tube/)
 
 An interactive, high-performance engineering suite for designing, sizing, and simulating **Shell and Tube Heat Exchangers**. Built with a modular JavaScript thermodynamic calculation engine, real-time HTML5 Canvas animation, and interactive analytical graphs.
 
@@ -12,7 +12,7 @@ An interactive, high-performance engineering suite for designing, sizing, and si
 
 This application runs **100% client-side** using standard ES modules and HTML5 Canvas. Anyone can use the live tool directly in their browser without installing any software or running a local server:
 
-👉 **[Launch Interactive Live Demo](index.html)** *(Or click the GitHub Pages link in the repository header)*
+👉 **[Launch Interactive Live Demo](https://benlillywhite.github.io/HX_Shell-Tube/)** *(Or click the GitHub Pages link in the repository header)*
 
 ---
 

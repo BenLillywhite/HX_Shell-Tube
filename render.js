@@ -136,7 +136,9 @@ export class Renderer {
         // At 0.8m, only take up 40% of the maximum available height
         const baselineHeight = maxShellHeight * 0.4; 
         
-        let shellHeight = baselineHeight * (this.config.shell.diameter / baselineDiameter);
+        // Visually fix the model image size to the 24-inch (0.6096m) size per user request
+        const visualDiameter = 0.6096;
+        let shellHeight = baselineHeight * (visualDiameter / baselineDiameter);
         // Clamp visually so it doesn't break out of the canvas, but don't limit the actual math
         shellHeight = Math.max(80, Math.min(shellHeight, maxShellHeight));
         

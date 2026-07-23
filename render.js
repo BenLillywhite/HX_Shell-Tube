@@ -127,7 +127,8 @@ export class Renderer {
         const minT = this.config.coldFluid.tempIn;
         const maxT = this.config.hotFluid.tempIn;
         
-        const shellPadding = 160;
+        // Make padding dynamic so it doesn't squish on smaller screens
+        const shellPadding = Math.max(60, Math.min(160, this.width * 0.15));
         const shellWidth = this.width - shellPadding * 2;
         
         const baselineDiameter = 0.8;

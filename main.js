@@ -14,20 +14,20 @@ const App = {
 
         const showGraphs = ref(false);
         const showAbout = ref(false);
-        const showConfigPanel = ref(window.innerWidth >= 1024);
-        const showResultsPanel = ref(window.innerWidth >= 1024);
+        const showConfigPanel = ref(window.innerWidth >= 1200);
+        const showResultsPanel = ref(window.innerWidth >= 1200);
         const unitSystem = ref('SI');
 
         const toggleConfigPanel = () => {
             showConfigPanel.value = !showConfigPanel.value;
-            if (showConfigPanel.value && window.innerWidth < 1024) {
+            if (showConfigPanel.value && window.innerWidth < 1200) {
                 showResultsPanel.value = false;
             }
         };
 
         const toggleResultsPanel = () => {
             showResultsPanel.value = !showResultsPanel.value;
-            if (showResultsPanel.value && window.innerWidth < 1024) {
+            if (showResultsPanel.value && window.innerWidth < 1200) {
                 showConfigPanel.value = false;
             }
         };

@@ -108,7 +108,7 @@ body {
 }
 
 .properties-panel {
-    width: 360px;
+    width: 320px;
     background-color: var(--panel-bg);
     border-left: 1px solid var(--border-color);
     display: flex;
@@ -292,7 +292,7 @@ body {
     flex-direction: column;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
     .mobile-toggle-btn {
         display: inline-flex !important;
     }
@@ -322,8 +322,8 @@ body {
     .sidebar {
         position: fixed;
         left: 0;
-        top: 4.5rem;
-        height: calc(100vh - 4.5rem);
+        top: 50px;
+        height: calc(100vh - 50px);
         z-index: 100;
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -338,8 +338,8 @@ body {
     .properties-panel {
         position: fixed;
         right: 0;
-        top: 4.5rem;
-        height: calc(100vh - 4.5rem);
+        top: 50px;
+        height: calc(100vh - 50px);
         z-index: 100;
         transform: translateX(100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);

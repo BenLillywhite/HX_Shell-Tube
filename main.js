@@ -422,7 +422,8 @@ const App = {
             toggleResultsPanel,
             unitSystem,
             setUnitSystem,
-            resetToDefaults
+            resetToDefaults,
+            aboutPdfUrl: new URL('HX_About_page.pdf', import.meta.url).href
         };
     },
     template: `
@@ -803,84 +804,10 @@ const App = {
 
             <!-- About Modal Overlay -->
             <div v-if="showAbout" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center;">
-                <div style="background: #f8fafc; padding: 30px; border-radius: 12px; width: 90%; max-width: 800px; max-height: 85%; overflow-y: auto; display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
-                    <button @click="toggleAbout" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 28px; cursor: pointer; color: #64748b; line-height: 1;">&times;</button>
-                    <!-- Centered LaTeX-style Title Block (maketitle) -->
-                    <div style="text-align: center; margin-bottom: 25px; margin-top: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 20px;">
-                        <h1 style="color: #143d70; font-size: 24px; font-weight: bold; margin-bottom: 10px; line-height: 1.2;">Shell and Tube Heat Exchanger Model</h1>
-                        <div style="font-size: 15px; font-weight: bold; color: #334155; margin-bottom: 4px;">Benjamin Lillywhite</div>
-                        <div style="font-size: 13px; color: #475569; font-family: monospace; margin-bottom: 4px;">
-                            <a href="mailto:Benjamin.Lillywhite@student.montana.edu" style="color: #475569; text-decoration: none;">Benjamin.Lillywhite@student.montana.edu</a>
-                        </div>
-                        <div style="font-size: 13px; color: #64748b; font-style: italic;">
-                            Montana State University &bull; Chemical Engineering, Class of '28
-                        </div>
-                    </div>
-                    <div style="font-size: 15px; line-height: 1.6; color: #334155;">
-                        <h3 style="color: #0f172a; margin-top: 15px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">1. Overview</h3>
-                        <p>Shell and tube heat exchangers are widely used in industry, in places such as oil refineries, power plants, and chemical processing facilities. Within a shell and tube heat exchanger, heat is transferred between two fluids that are separated and not mixed. One fluid flows inside the tubes, and the other flows through the surrounding shell at a different temperature. Through this model, it is possible to design a simple shell and tube heat exchanger and generate output results.</p>
-
-                        <h3 style="color: #0f172a; margin-top: 25px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">2. Methods and Equations</h3>
-                        <p>The fundamental thermodynamic behavior is governed by the Log Mean Temperature Difference (LMTD) method and the Effectiveness-NTU (\\(\\varepsilon\\)-NTU) method.</p>
-
-                        <h4 style="color: #1e293b; margin-top: 20px; font-weight: 600;">2.1 Effectiveness-NTU Method</h4>
-                        <p>When given an existing heat exchanger design, the NTU (number of transfer units) method allows us to predict the outlet temperatures.</p>
-                        <p>The value for NTU is defined as:</p>
-                        <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            $$ NTU = \\frac{U A_s}{C_{\\text{min}}} $$
-                        </div>
-                        <p>Where:</p>
-                        <ul style="margin-top: 5px; padding-left: 20px; list-style-type: disc;">
-                            <li style="margin-bottom: 8px;"><strong>\\(U\\)</strong> is the overall heat transfer coefficient (\\(\\text{W}/(\\text{m}^2\\cdot\\text{K})\\))</li>
-                            <li style="margin-bottom: 8px;"><strong>\\(A_s\\)</strong> is the heat transfer surface area (\\(\\text{m}^2\\))
-                                <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-top: 10px; margin-bottom: 10px; margin-left: 20px; max-width: 95%;">
-                                    $$ A_s = N \\cdot \\pi \\cdot D_o \\cdot L $$
-                                </div>
-                            </li>
-                            <li style="margin-bottom: 8px;"><strong>\\(C_{\\text{min}}\\)</strong> is the minimum heat capacity rate (\\(\\text{W}/\\text{K}\\)), defined as the smaller value between the hot and cold fluid heat capacity rates (\\(\\min(C_H, C_C)\\))</li>
-                        </ul>
-
-                        <p style="margin-top: 20px;">The maximum heat transfer rate (\\(Q_{\\text{max}}\\) in \\(\\text{W}\\)) is defined as:</p>
-                        <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            $$ Q_{\\text{max}} = C_{\\text{min}} (T_{H,\\text{in}} - T_{C,\\text{in}}) $$
-                        </div>
-
-                        <p>The effectiveness can be shown as:</p>
-                        <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            $$ \\epsilon = \\frac{Q_{\\text{actual}}}{Q_{\\text{max}}} $$
-                        </div>
-
-                        <p>The outlet temperatures of the heat exchanger can be found via the first law of thermodynamics:</p>
-                        <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 10px;">
-                            $$ Q_{\\text{actual}} = \\dot{m_h} \\cdot C_{p,h} \\cdot (T_{\\text{h,in}}-T_{\\text{h,out}}) $$
-                        </div>
-                        <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            $$ Q_{\\text{actual}} = \\dot{m_c} \\cdot C_{p,c} \\cdot (T_{\\text{c,out}}-T_{\\text{c,in}}) $$
-                        </div>
-                        <p>Where:</p>
-                        <ul style="margin-top: 5px; padding-left: 20px; list-style-type: disc;">
-                            <li style="margin-bottom: 8px;"><strong>\\(\\dot{m}\\)</strong> is the mass flow rate (\\(\\text{kg}/\\text{s}\\))</li>
-                            <li style="margin-bottom: 8px;"><strong>\\(C_p\\)</strong> is the specific heat capacity (\\(\\text{J}/(\\text{kg}\\cdot\\text{K})\\))</li>
-                        </ul>
-
-                        <h4 style="color: #1e293b; margin-top: 25px; font-weight: 600;">2.2 Log Mean Temperature Difference Method (LMTD)</h4>
-                        <p>When trying to determine the size of a heat exchanger to achieve a desired output temperature the LMTD method is used.</p>
-                        <p>The total heat transfer rate \\(Q\\) (\\(\\text{W}\\)) is defined as:</p>
-                        <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-bottom: 15px;">
-                            $$ Q = U \\cdot A_s \\cdot F \\cdot \\Delta T_{lm} $$
-                        </div>
-                        <p>Where:</p>
-                        <ul style="margin-top: 5px; padding-left: 20px; list-style-type: disc;">
-                            <li style="margin-bottom: 8px;"><strong>\\(F\\)</strong> is defined as the correction factor (Dimensionless).</li>
-                            <li style="margin-bottom: 8px;"><strong>\\(\\Delta T_{lm}\\)</strong> (\\(\\text{K}\\)) is defined as:
-                                <div style="background: white; padding: 12px; border-radius: 6px; text-align: center; border: 1px solid #e2e8f0; margin-top: 10px; margin-bottom: 10px; margin-left: 20px; max-width: 95%;">
-                                    $$ \\Delta T_{lm} = \\frac{\\Delta T_1 - \\Delta T_2}{\\ln\\left(\\frac{\\Delta T_1}{\\Delta T_2}\\right)} $$
-                                </div>
-                            </li>
-                        </ul>
-
-                        <h3 style="color: #0f172a; margin-top: 30px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">3. Takeaways</h3>
-                        <p>It is important to note that shell and tube heat exchangers can become much more complex than what the model shows. Baffles, fins, and other implementations can be added to the heat exchangers to increase heat transfer. This model is intended to show the general behavior of a simple shell and tube heat exchanger.</p>
+                <div style="background: #f8fafc; padding: 20px; border-radius: 12px; width: 90%; max-width: 1000px; height: 85vh; display: flex; flex-direction: column; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+                    <button @click="toggleAbout" style="position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 28px; cursor: pointer; color: #64748b; line-height: 1; z-index: 1010;">&times;</button>
+                    <div style="flex: 1; margin-top: 30px; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; background: #ffffff;">
+                        <iframe :src="aboutPdfUrl" style="width: 100%; height: 100%; border: none;"></iframe>
                     </div>
                 </div>
             </div>

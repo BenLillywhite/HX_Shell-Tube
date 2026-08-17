@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 [![Technology](https://img.shields.io/badge/Tech-Vue.js%203%20%7C%20HTML5%20Canvas%20%7C%20Django-0052CC?style=for-the-badge)](https://benlillywhite.github.io/HX_Shell-Tube/)
 
-An interactive academic engineering model for designing, sizing, and simulating simple **Shell and Tube Heat Exchangers**. Built with a modular JavaScript thermodynamic calculation engine, real-time HTML5 Canvas animation, and interactive analytical graphs. 
+An interactive model for designing, sizing, and simulating simple **Shell and Tube Heat Exchangers**. Built with a modular JavaScript thermodynamic calculation engine, real-time HTML5 Canvas animation, and interactive analytical graphs. 
 
 ---
 
@@ -18,7 +18,7 @@ This application runs using standard ES modules and HTML5 Canvas. Anyone can use
 
 ## Key Features
 
-- **Thermodynamic $\text{NTU}-\varepsilon$ Calculation Engine**:
+- **Thermodynamic $\text{NTU}- Calculation Engine**:
   - Full implementation of the Number of Transfer Units ($\text{NTU}$) - Effectiveness ($\varepsilon$) method for counter-flow, parallel-flow, and multi-pass shell and tube configurations.
   - Automatic calculation of overall heat transfer coefficients ($U$), fouling resistances ($R_f$), mean temperature differences ($\text{LMTD}$), and $F$-factor geometry corrections.
   - Fluid flow regime determination (Laminar, Transitional, Turbulent) based on shell & tube side Reynolds numbers ($Re$).

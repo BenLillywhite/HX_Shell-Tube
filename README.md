@@ -1,8 +1,7 @@
 # Shell & Tube Heat Exchanger (S&T HX) Design & Simulation Suite
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=github)](https://benlillywhite.github.io/HX_Shell-Tube/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
-[![Technology](https://img.shields.io/badge/Tech-Vue.js%203%20%7C%20HTML5%20Canvas%20%7C%20Django-0052CC?style=for-the-badge)](https://benlillywhite.github.io/HX_Shell-Tube/)
+
 
 An interactive tool for designing, sizing, and simulating simple shell and tube heat exchangers. The model uses a JavaScript based thermodynamic calculation engine to perform heat transfer and fluid flow calculations, with interactive visualizations to show the results.
 

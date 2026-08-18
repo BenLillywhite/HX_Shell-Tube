@@ -20,27 +20,23 @@ This application runs using standard ES modules and HTML5 Canvas. Anyone can use
 ## Key Features
 
 - **Thermodynamic NTU- Calculation Engine**:
-  - Full implementation of the Number of Transfer Units ($\text{NTU}$) - Effectiveness ($\varepsilon$) method for counter-flow, parallel-flow, and multi-pass shell and tube configurations.
+  - Implementation of the Number of Transfer Units ($\text{NTU}$) - Effectiveness ($\varepsilon$) method for counter-flow, parallel-flow, and multi-pass shell and tube configurations.
   - Automatic calculation of overall heat transfer coefficients ($U$), fouling resistances ($R_f$), mean temperature differences ($\text{LMTD}$), and $F$-factor geometry corrections.
   - Fluid flow regime determination (Laminar, Transitional, Turbulent) based on shell & tube side Reynolds numbers ($Re$).
   - Friction factor and pressure drop calculations ($\Delta P$) for shell and tube sides.
 
 - **Real-Time HTML5 Canvas Visualizer**:
-  - Live animated fluid particles matching mass flow rate and velocity.
-  - Dynamic HSL color gradients mapping temperature profiles from inlet to outlet.
-  - Structural geometry visualization for single-pass and multi-pass (U-bend / longitudinal baffle) shell & tube arrangements.
+  - Animated fluid particles matching mass flow rate and velocity.
+  - HSL color gradients mapping temperature profiles from inlet to outlet.
 
 - **Engineering Controls & Databases**:
-  - **Fluid Databases**: Pre-configured thermodynamic properties ($\rho, c_p, \mu, k$) for Water, Engine Oil, Ethylene Glycol, Therminol 66, Crude Oil, and Air.
-  - **Material Databases**: Thermal conductivity values ($k$) for Carbon Steel, Stainless Steel (316/304), Copper, Brass, and Titanium.
-  - **Fouling Margins**: Standard TEMA fouling resistances for treatable plant water, seawater, engine oils, and organic solvents.
+  - **Fluid Databases**: Pre-configured thermodynamic properties ($\rho, c_p, \mu, k$) for water, engine Oil, ethylene glycol, methanol, ethanol, benzene, acetone, and Dowtherm A
+  - **Material Databases**: Thermal conductivity values ($k$) for Carbon Steel, Stainless Steel (316/304), Copper, and Titanium.
+  - **Fouling Margins**: Standard TEMA fouling resistances for treatable plant water, standard city tap water, cooling tower water, and muddy water.
 
 - **Unit Conversion**:
   - Instant conversion between **Metric (SI)** ($^\circ\text{C}, \text{kg/s}, \text{kW}, \text{kPa}, \text{W/m}^2\text{K}$) and **English (Imperial)** ($^\circ\text{F}, \text{lb/hr}, \text{BTU/hr}, \text{psi}, \text{BTU/hr}\cdot\text{ft}^2\cdot^\circ\text{F}$).
 
-- **Analytics & Documentation**:
-  - Integrated **Chart.js** drawer for plotting fractional temperature profiles ($T$ vs. $x/L$).
-  - Educational reference modal with **MathJax** rendered thermodynamic formulas and derivations.
 
 ---
 

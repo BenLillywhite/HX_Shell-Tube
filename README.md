@@ -6,6 +6,7 @@
 
 An interactive model for designing, sizing, and simulating simple **Shell and Tube Heat Exchangers**. Built with a modular JavaScript thermodynamic calculation engine, real-time HTML5 Canvas animation, and interactive analytical graphs. 
 
+![image alt](https://github.com/BenLillywhite/HX_Shell-Tube/blob/main/Screenshot%202026-08-18%20145555.jpg?raw=true)
 ---
 
 ## Browser Access

@@ -79,9 +79,9 @@ export const FluidDatabase = {
 
 export const MaterialDatabase = {
     "Carbon Steel": { k: 45.0, description: "Standard utility piping." },
-    "Stainless Steel 304/316": { k: 15.0, description: "Corrosion resistant process tubing." },
-    "Copper-Nickel": { k: 40.0, description: "Seawater and brackish environments." },
-    "Titanium": { k: 16.0, description: "High corrosion and extreme service." }
+    "Stainless Steel 304/316": { k: 16.0, description: "Corrosion resistant process tubing." },
+    "Copper-Nickel (90 Cu - 10 Ni)": { k: 71.0, description: "Seawater and brackish environments." },
+    "Titanium": { k: 19.0, description: "High corrosion and extreme service." }
 };
 
 export const FoulingDatabase = {

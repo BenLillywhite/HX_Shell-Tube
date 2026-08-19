@@ -31,7 +31,7 @@ This application runs using standard ES modules and HTML5 Canvas. Anyone can use
 - **Engineering Controls & Databases**:
   - **Fluid Databases**: Pre-configured thermodynamic properties ($\rho, c_p, \mu, k$) for water, engine Oil, ethylene glycol, methanol, ethanol, benzene, acetone, and Dowtherm A
   - **Material Databases**: Thermal conductivity values ($k$) for Carbon Steel, Stainless Steel (316/304), Copper, and Titanium.
-  - **Fouling Margins**: Standard TEMA fouling resistances for treatable plant water, standard city tap water, cooling tower water, and muddy water.
+  - **Fouling Margins**: Fouling resistances for treatable plant water, standard city tap water, cooling tower water, and muddy water.
 
 - **Unit Conversion**:
   - Instant conversion between **Metric (SI)** ($^\circ\text{C}, \text{kg/s}, \text{kW}, \text{kPa}, \text{W/m}^2\text{K}$) and **English (Imperial)** ($^\circ\text{F}, \text{lb/hr}, \text{BTU/hr}, \text{psi}, \text{BTU/hr}\cdot\text{ft}^2\cdot^\circ\text{F}$).

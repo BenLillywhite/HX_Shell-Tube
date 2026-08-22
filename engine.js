@@ -2,6 +2,8 @@
  * Heat Exchanger Physics Engine (V2)
  * Dynamic Surface Area calculations and Effectiveness-NTU methods.
  */
+import { getFluidProperties } from './database.js';
+
 export class HeatExchangerEngine {
     constructor() {
         this.numSegments = 20;
@@ -30,12 +32,11 @@ export class HeatExchangerEngine {
     static F_to_C(f) { return (f - 32) * 5/9; }
     static C_to_F(c) { return c * 9/5 + 32; }
 
-    calculate(uiConfig, unitSystem = 'SI') {
-        let config = uiConfig;
+    calculate(uiConfig, unitSystem = 'SI', propertyIteration = 0, inputIsSI = false) {
+        let config = JSON.parse(JSON.stringify(uiConfig));
         
         // --- TRANSLATION LAYER: INPUT ---
-        if (unitSystem === 'English') {
-            config = JSON.parse(JSON.stringify(uiConfig));
+        if (unitSystem === 'English' && !inputIsSI) {
             const C = HeatExchangerEngine.CONV;
             
             config.shell.diameter *= C.in_to_m;
@@ -59,6 +60,29 @@ export class HeatExchangerEngine {
             translateFluid(config.hotFluid);
             translateFluid(config.coldFluid);
         }
+
+        for (const fluid of [config.hotFluid, config.coldFluid]) {
+            if (fluid.minT !== undefined && fluid.tempIn < fluid.minT) {
+                return { valid: false, error: 'Fluid inlet temperature is below its liquid-phase range.' };
+            }
+            if (fluid.maxT !== undefined && fluid.tempIn > fluid.maxT) {
+                return { valid: false, error: 'Fluid inlet temperature exceeds its boiling point.' };
+            }
+        }
+
+        const getTemperatureProperties = fluid => {
+            const propertyTemperature = fluid.propertyTemp ?? fluid.tempIn;
+            return fluid.temperature ? getFluidProperties(fluid, propertyTemperature) : {
+                cp: fluid.cp,
+                rho: fluid.rho,
+                mu: fluid.mu,
+                k: fluid.k
+            };
+        };
+
+        config.hotFluid = { ...config.hotFluid, ...getTemperatureProperties(config.hotFluid) };
+        config.coldFluid = { ...config.coldFluid, ...getTemperatureProperties(config.coldFluid) };
+
         // Calculate dynamic surface area A = N_total * pi * D * L
         const totalTubes = config.tube.tubesPerPass * config.tube.passes;
         const A = totalTubes * Math.PI * config.tube.outerDiameter * config.tube.length;
@@ -187,6 +211,30 @@ export class HeatExchangerEngine {
         
         const hotTempOut = config.hotFluid.tempIn - (Q / C_h);
         const coldTempOut = config.coldFluid.tempIn + (Q / C_c);
+
+        for (const [fluid, outletTemp] of [[config.hotFluid, hotTempOut], [config.coldFluid, coldTempOut]]) {
+            if (fluid.minT !== undefined && outletTemp < fluid.minT) {
+                return { valid: false, error: 'Calculated outlet temperature is below the liquid-phase range.' };
+            }
+            if (fluid.maxT !== undefined && outletTemp > fluid.maxT) {
+                return { valid: false, error: 'Calculated outlet temperature exceeds the boiling point.' };
+            }
+        }
+
+        const nextHotPropertyTemp = (config.hotFluid.tempIn + hotTempOut) / 2;
+        const nextColdPropertyTemp = (config.coldFluid.tempIn + coldTempOut) / 2;
+        const currentHotPropertyTemp = config.hotFluid.propertyTemp ?? config.hotFluid.tempIn;
+        const currentColdPropertyTemp = config.coldFluid.propertyTemp ?? config.coldFluid.tempIn;
+        const propertyTemperatureDelta = Math.max(
+            Math.abs(nextHotPropertyTemp - currentHotPropertyTemp),
+            Math.abs(nextColdPropertyTemp - currentColdPropertyTemp)
+        );
+
+        if ((config.hotFluid.temperature || config.coldFluid.temperature) && propertyTemperatureDelta > 0.01 && propertyIteration < 12) {
+            config.hotFluid.propertyTemp = nextHotPropertyTemp;
+            config.coldFluid.propertyTemp = nextColdPropertyTemp;
+            return this.calculate(config, unitSystem, propertyIteration + 1, true);
+        }
         
         const profile = this.calculateProfile(config, Q, hotTempOut, coldTempOut, A, UkW, C_h, C_c);
         
@@ -221,15 +269,15 @@ export class HeatExchangerEngine {
         const overdesign = ((A - A_req) / A_req) * 100;
         
         // Hydraulics (Approximations for pressure drop)
-        
-        // Rough delta P (kPa)
-        const dP_tube = (0.5 * rho_cold * Math.pow(v_tube, 2) * (0.02 * config.tube.length / Di) * config.tube.passes) / 1000;
-        const dP_shell = (0.5 * rho_hot * Math.pow(v_shell, 2) * 20 * config.shell.passes) / 1000;
+        // Temporarily disabled:
+        // const dP_tube = (0.5 * rho_cold * Math.pow(v_tube, 2) * (0.02 * config.tube.length / Di) * config.tube.passes) / 1000;
+        // const dP_shell = (0.5 * rho_hot * Math.pow(v_shell, 2) * 20 * config.shell.passes) / 1000;
         
         let result = {
+            valid: true,
             A, Q, hotTempOut, coldTempOut, epsilon, profile,
             LMTD, F_factor, A_req, overdesign, U: U_dirty, Rf,
-            v_tube, v_shell, dP_tube, dP_shell,
+            v_tube, v_shell,
             Re_tube, Re_shell,
             NTU, C_r
         };
@@ -246,8 +294,9 @@ export class HeatExchangerEngine {
             result.Rf *= C.U_eng_to_si; // inverse of U translation
             result.v_tube *= C.m_to_ft;
             result.v_shell *= C.m_to_ft;
-            result.dP_tube *= C.pressure_si_to_eng;
-            result.dP_shell *= C.pressure_si_to_eng;
+            // Pressure-drop output temporarily disabled:
+            // result.dP_tube *= C.pressure_si_to_eng;
+            // result.dP_shell *= C.pressure_si_to_eng;
             
             result.profile = result.profile.map(p => ({
                 x: p.x,

@@ -1,7 +1,7 @@
 import { createApp, ref, onMounted, watch, nextTick } from 'vue';
 import { HeatExchangerEngine } from './engine.js';
 import { Renderer } from './render.js';
-import { FluidDatabase, MaterialDatabase, FoulingDatabase } from './database.js';
+import { FluidDatabase, MaterialDatabase, FoulingDatabase, getFluidProperties } from './database.js';
 
 const App = {
     setup() {
@@ -80,26 +80,30 @@ const App = {
                 k_material: 45.0
             },
             hotFluid: {
-                name: 'Engine Oil (Light Mineral Oil)',
-                tempIn: 120,
+                name: 'Engine Oil (unused)',
+                tempIn: 70,
                 massFlow: 1.8,
-                cp: 1.95,
-                rho: 880,
-                mu: 0.05,
-                k: 0.14,
+                cp: 2.090,
+                rho: 857.95,
+                mu: 0.053155,
+                k: 0.1392,
                 Rf: 0,
+                minT: FluidDatabase["Engine Oil (unused)"].minT,
+                maxT: FluidDatabase["Engine Oil (unused)"].maxT,
                 warning: ''
             },
             coldFluid: {
                 name: 'Water',
-                tempIn: 20,
+                tempIn: 50,
                 massFlow: 2.5,
                 cp: 4.181,
-                rho: 998,
-                mu: 0.001,
-                k: 0.6,
+                rho: 988.1,
+                mu: 0.000547,
+                k: 0.644,
                 fouling: 'Cooling Tower Water',
                 Rf: 0.0003,
+                minT: FluidDatabase.Water.minT,
+                maxT: FluidDatabase.Water.maxT,
                 warning: ''
             }
         });
@@ -129,10 +133,20 @@ const App = {
         const handleFluidChange = (fluidState) => {
             const db = FluidDatabase[fluidState.name];
             if (db) {
-                fluidState.cp = db.cp;
-                fluidState.rho = db.rho;
-                fluidState.mu = db.mu;
-                fluidState.k = db.k;
+                const defaultTemperature = (db.minT + db.maxT) / 2;
+                fluidState.tempIn = unitSystem.value === 'English'
+                    ? HeatExchangerEngine.C_to_F(defaultTemperature)
+                    : defaultTemperature;
+                const propertyTemperature = unitSystem.value === 'English'
+                    ? HeatExchangerEngine.F_to_C(fluidState.tempIn)
+                    : fluidState.tempIn;
+                const properties = getFluidProperties(db, propertyTemperature);
+                fluidState.cp = properties.cp;
+                fluidState.rho = properties.rho;
+                fluidState.mu = properties.mu;
+                fluidState.k = properties.k;
+                fluidState.minT = db.minT;
+                fluidState.maxT = db.maxT;
 
                 if (unitSystem.value === 'English') {
                     const C = HeatExchangerEngine.CONV;
@@ -181,7 +195,7 @@ const App = {
             }
 
             if (fluidState.tempIn > maxT) {
-                fluidState.warning = `Fluid exceeds boiling point (${maxT.toFixed(1)}°). Switch to a phase-change model or lower the temperature.`;
+                fluidState.warning = `Fluid exceeds boiling point (${maxT.toFixed(1)}°)`;
             } else if (fluidState.tempIn < minT) {
                 fluidState.warning = `Fluid drops below freezing point (${minT.toFixed(1)}°). Switch to a phase-change model or raise the temperature.`;
             }
@@ -202,6 +216,7 @@ const App = {
         });
 
         const simulationResults = ref(null);
+        const calculationError = ref('');
 
         const toggleGraphs = () => {
             showGraphs.value = !showGraphs.value;
@@ -226,6 +241,14 @@ const App = {
         const runSimulation = () => {
             if (!engine || !renderer) return;
             const result = engine.calculate(config.value, unitSystem.value);
+            if (!result.valid) {
+                simulationResults.value = null;
+                calculationError.value = result.error;
+                renderer.stop();
+                return;
+            }
+
+            calculationError.value = '';
             simulationResults.value = result;
 
             // Clone config and transform to SI for renderer to avoid changing drawing logic
@@ -412,6 +435,7 @@ const App = {
             handleFoulingChange,
             checkFluidTemp,
             simulationResults,
+            calculationError,
             showGraphs,
             toggleGraphs,
             showAbout,
@@ -423,7 +447,7 @@ const App = {
             unitSystem,
             setUnitSystem,
             resetToDefaults,
-            aboutPdfUrl: new URL('HX_About_page.pdf', import.meta.url).href
+            aboutPdfUrl: new URL('HX_About_page 1.2.pdf', import.meta.url).href
         };
     },
     template: `
@@ -557,7 +581,7 @@ const App = {
                     <!-- Hot Fluid Settings -->
                     <div class="accordion-section">
                         <div class="accordion-header" :class="{ active: openPanels.hotFluid }" @click="togglePanel('hotFluid')">
-                            <span>Hot Fluid (Shell)</span>
+                            <span>Shell Fluid</span>
                             <span class="chevron">{{ openPanels.hotFluid ? '▼' : '▶' }}</span>
                         </div>
                         <div class="accordion-body" v-if="openPanels.hotFluid">
@@ -569,13 +593,13 @@ const App = {
                                 <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
                                     {{ FluidDatabase[config.hotFluid.name]?.description }}
                                 </div>
+                                <div v-if="config.hotFluid.warning" style="color: #ef4444; font-size: 11px; margin-top: 6px; padding: 6px; background: #fee2e2; border-radius: 4px; border: 1px solid #fca5a5;">
+                                    <strong>Warning:</strong> {{ config.hotFluid.warning }}
+                                </div>
                             </div>
                             <div class="input-group">
                                 <label>Inlet Temperature ({{ unitSystem === 'SI' ? '°C' : '°F' }})</label>
                                 <input type="number" v-model.number="config.hotFluid.tempIn" @change="checkFluidTemp(config.hotFluid)">
-                                <div v-if="config.hotFluid.warning" style="color: #ef4444; font-size: 11px; margin-top: 6px; padding: 6px; background: #fee2e2; border-radius: 4px; border: 1px solid #fca5a5;">
-                                    <strong>Warning:</strong> {{ config.hotFluid.warning }}
-                                </div>
                             </div>
                             <div class="input-group">
                                 <label>Mass Flow ({{ unitSystem === 'SI' ? 'kg/s' : 'lb/hr' }})</label>
@@ -591,14 +615,14 @@ const App = {
                     <!-- Cold Fluid Settings -->
                     <div class="accordion-section">
                         <div class="accordion-header" :class="{ active: openPanels.coldFluid }" @click="togglePanel('coldFluid')">
-                            <span>Cold Fluid (Tube)</span>
+                            <span>Tube Fluid</span>
                             <span class="chevron">{{ openPanels.coldFluid ? '▼' : '▶' }}</span>
                         </div>
                         <div class="accordion-body" v-if="openPanels.coldFluid">
                             <div class="input-group">
                                 <label>Fluid Type</label>
                                 <select v-model="config.coldFluid.name" @change="handleFluidChange(config.coldFluid)">
-                                    <option value="Water">Water</option>
+                                    <option v-for="key in fluidDbKeys" :key="key" :value="key">{{ key }}</option>
                                 </select>
                                 <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
                                     {{ FluidDatabase[config.coldFluid.name]?.description }}
@@ -645,6 +669,9 @@ const App = {
             <div class="main-area" style="flex-direction: column; position: relative; overflow: hidden;">
                 <div style="flex: 1; position: relative; width: 100%;">
                     <canvas id="hxCanvas" style="width: 100%; height: 100%; display: block; position: absolute;"></canvas>
+                    <div v-if="calculationError" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(90%, 420px); padding: 16px; color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; text-align: center; font-weight: 600; z-index: 5;">
+                        Calculation stopped: {{ calculationError }}
+                    </div>
                     
                     <!-- Temperature Legend Overlay -->
                     <div v-if="simulationResults" style="position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.9); padding: 10px 15px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: bold; color: #1e293b; z-index: 10; pointer-events: none;">
@@ -762,27 +789,16 @@ const App = {
                                     </span>
                                 </span>
                             </div>
+                            <!-- Pressure-drop dashboard temporarily disabled:
                             <div class="data-row">
                                 <span class="data-label">Tube ΔP:</span>
-                                <span class="data-value">
-                                    {{ simulationResults.dP_tube.toFixed(1) }} {{ unitSystem === 'SI' ? 'kPa' : 'psi' }}
-                                    <span :class="simulationResults.dP_tube < (unitSystem === 'SI' ? 70 : 10) ? 'status-ok' : 'status-high'">
-                                        [{{ simulationResults.dP_tube < (unitSystem === 'SI' ? 70 : 10) ? 'OK' : 'HIGH' }}]
-                                    </span>
-                                </span>
+                                <span class="data-value">{{ simulationResults.dP_tube.toFixed(1) }} {{ unitSystem === 'SI' ? 'kPa' : 'psi' }}</span>
                             </div>
                             <div class="data-row">
                                 <span class="data-label">Shell ΔP:</span>
-                                <span class="data-value">
-                                    {{ simulationResults.dP_shell.toFixed(1) }} {{ unitSystem === 'SI' ? 'kPa' : 'psi' }}
-                                    <span :class="simulationResults.dP_shell < (unitSystem === 'SI' ? 70 : 10) ? 'status-ok' : 'status-high'">
-                                        [{{ simulationResults.dP_shell < (unitSystem === 'SI' ? 70 : 10) ? 'OK' : 'HIGH' }}]
-                                    </span>
-                                </span>
+                                <span class="data-value">{{ simulationResults.dP_shell.toFixed(1) }} {{ unitSystem === 'SI' ? 'kPa' : 'psi' }}</span>
                             </div>
-                            <div v-if="simulationResults.dP_shell >= (unitSystem === 'SI' ? 70 : 10) || simulationResults.dP_tube >= (unitSystem === 'SI' ? 70 : 10)" class="data-row" style="margin-top: 5px;">
-                                <span class="status-warn">*Warning: Pressure Drop Limits Exceeded*</span>
-                            </div>
+                            -->
                         </div>
                     </div>
                     

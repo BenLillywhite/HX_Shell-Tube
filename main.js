@@ -1,13 +1,14 @@
 import { createApp, ref, onMounted, watch, nextTick } from 'vue';
-import { HeatExchangerEngine } from './engine.js';
-import { Renderer } from './render.js';
-import { FluidDatabase, MaterialDatabase, FoulingDatabase, getFluidProperties } from './database.js';
+import { HeatExchangerEngine } from './engine.js?v=20260906';
+import { Renderer } from './render.js?v=20260906';
+import { MaterialDatabase } from './database.js?v=20260906';
 
 const App = {
     setup() {
         const openPanels = ref({
             shell: false,
             tube: false,
+            hxSettings: false,
             hotFluid: false,
             coldFluid: false
         });
@@ -17,6 +18,8 @@ const App = {
         const showConfigPanel = ref(window.innerWidth >= 1200);
         const showResultsPanel = ref(window.innerWidth >= 1200);
         const unitSystem = ref('SI');
+        const calculationMethod = ref('NTU');
+        let savedMethodConfigs = { NTU: null, LMTD: null };
 
         const toggleConfigPanel = () => {
             showConfigPanel.value = !showConfigPanel.value;
@@ -32,89 +35,108 @@ const App = {
             }
         };
 
-        const setUnitSystem = (newSys) => {
-            if (unitSystem.value === newSys) return;
-            unitSystem.value = newSys;
-
-            const c = config.value;
+        const convertConfigUnits = (c, toEng) => {
             const C = HeatExchangerEngine.CONV;
-            const toEng = newSys === 'English';
 
             c.shell.diameter = toEng ? c.shell.diameter * C.m_to_in : c.shell.diameter * C.in_to_m;
             c.tube.length = toEng ? c.tube.length * C.m_to_ft : c.tube.length * C.ft_to_m;
             c.tube.outerDiameter = toEng ? c.tube.outerDiameter * C.m_to_in : c.tube.outerDiameter * C.in_to_m;
 
-            if (c.customU) c.customU = toEng ? c.customU * C.U_si_to_eng : c.customU * C.U_eng_to_si;
+            c.customU = toEng ? c.customU * C.U_si_to_eng : c.customU * C.U_eng_to_si;
             if (c.tube.k_material) c.tube.k_material = toEng ? c.tube.k_material / C.k_eng_to_si : c.tube.k_material * C.k_eng_to_si;
 
             const translateFluid = (f) => {
                 f.tempIn = toEng ? HeatExchangerEngine.C_to_F(f.tempIn) : HeatExchangerEngine.F_to_C(f.tempIn);
+                if (f.tempOut !== undefined) f.tempOut = toEng ? HeatExchangerEngine.C_to_F(f.tempOut) : HeatExchangerEngine.F_to_C(f.tempOut);
                 f.massFlow = toEng ? f.massFlow * C.massflow_si_to_eng : f.massFlow * C.massflow_eng_to_si;
                 f.cp = toEng ? f.cp / C.cp_eng_to_si : f.cp * C.cp_eng_to_si;
-                if (f.rho) f.rho = toEng ? f.rho / C.rho_eng_to_si : f.rho * C.rho_eng_to_si;
-                if (f.mu) f.mu = toEng ? f.mu / C.mu_eng_to_si : f.mu * C.mu_eng_to_si;
-                if (f.k) f.k = toEng ? f.k / C.k_eng_to_si : f.k * C.k_eng_to_si;
-                if (f.Rf) f.Rf = toEng ? f.Rf / C.U_si_to_eng : f.Rf * C.U_si_to_eng;
             };
 
             translateFluid(c.hotFluid);
             translateFluid(c.coldFluid);
+        };
+
+        const setUnitSystem = (newSys) => {
+            if (unitSystem.value === newSys) return;
+            unitSystem.value = newSys;
+
+            const toEng = newSys === 'English';
+
+            convertConfigUnits(config.value, toEng);
+            for (const method of ['NTU', 'LMTD']) {
+                if (savedMethodConfigs[method]) convertConfigUnits(savedMethodConfigs[method], toEng);
+            }
 
             runSimulation();
         };
 
-        const getDefaultConfig = () => ({
-            useCustomU: false,
-            customU: 800,
-            shell: {
-                passes: 1,
-                diameter: 0.4572, // meters (18" Nominal)
-            },
-            tube: {
-                passes: 1,     // Standard single pass by default
-                flowArrangement: 'counter', // 'counter' or 'parallel'
-                tubesPerPass: 16, // Tubes per pass
-                length: 2.0,   // meters
-                outerDiameter: 0.02, // meters
-                material: 'Carbon Steel',
-                k_material: 45.0
-            },
-            hotFluid: {
-                name: 'Engine Oil (unused)',
-                tempIn: 70,
-                massFlow: 1.8,
-                cp: 2.090,
-                rho: 857.95,
-                mu: 0.053155,
-                k: 0.1392,
-                Rf: 0,
-                minT: FluidDatabase["Engine Oil (unused)"].minT,
-                maxT: FluidDatabase["Engine Oil (unused)"].maxT,
-                warning: ''
-            },
-            coldFluid: {
-                name: 'Water',
-                tempIn: 50,
-                massFlow: 2.5,
-                cp: 4.181,
-                rho: 988.1,
-                mu: 0.000547,
-                k: 0.644,
-                fouling: 'Cooling Tower Water',
-                Rf: 0.0003,
-                minT: FluidDatabase.Water.minT,
-                maxT: FluidDatabase.Water.maxT,
-                warning: ''
+        const toggleCalculationMethod = () => {
+            const previousMethod = calculationMethod.value;
+            const nextMethod = previousMethod === 'NTU' ? 'LMTD' : 'NTU';
+            savedMethodConfigs[previousMethod] = JSON.parse(JSON.stringify(config.value));
+            let nextConfig = savedMethodConfigs[nextMethod];
+            if (!nextConfig) {
+                // getDefaultConfig always returns SI values; convert to match the active unit system
+                nextConfig = getDefaultConfig(nextMethod);
+                if (unitSystem.value === 'English') {
+                    convertConfigUnits(nextConfig, true);
+                }
             }
-        });
+            config.value = nextConfig;
+            calculationMethod.value = nextMethod;
+            runSimulation();
+        };
+
+        const getDefaultConfig = (method = 'NTU') => {
+            const defaultConfig = {
+                customU: 800,
+                shell: {
+                    passes: 1,
+                    diameter: 0.4572, // meters (18" Nominal)
+                },
+                tube: {
+                    passes: 1,     // Standard single pass by default
+                    flowArrangement: 'counter', // 'counter' or 'parallel'
+                    tubesPerPass: 16, // Tubes per pass
+                    length: 2.0,   // meters
+                    outerDiameter: 0.02, // meters
+                    material: 'Carbon Steel',
+                    k_material: 45.0
+                },
+                hotFluid: {
+                    tempIn: 70,
+                    massFlow: 1.8,
+                    cp: 2.090
+                },
+                coldFluid: {
+                    tempIn: 50,
+                    massFlow: 2.5,
+                    cp: 4.181
+                }
+            };
+
+            if (method === 'LMTD') {
+                // Physically valid defaults: hot outlet stays above cold inlet, hot inlet stays above cold outlet
+                defaultConfig.hotFluid.tempIn = 150;
+                defaultConfig.hotFluid.tempOut = 100;
+                defaultConfig.coldFluid.tempIn = 20;
+                defaultConfig.coldFluid.tempOut = 38;
+                defaultConfig.lmtdKnownFluid = 'hot';
+                defaultConfig.hxType = '1-1';
+                defaultConfig.manualFFactor = 0.85;
+            }
+
+            return defaultConfig;
+        };
 
         // Exchanger Configuration State
-        const config = ref(getDefaultConfig());
+        const config = ref(getDefaultConfig('NTU'));
 
         const resetToDefaults = () => {
             const currentUnit = unitSystem.value;
             unitSystem.value = 'SI';
-            config.value = getDefaultConfig();
+            savedMethodConfigs = { NTU: null, LMTD: null };
+            config.value = getDefaultConfig(calculationMethod.value);
             if (currentUnit === 'English') {
                 setUnitSystem('English');
             } else {
@@ -126,39 +148,23 @@ const App = {
             openPanels.value[nodeId] = !openPanels.value[nodeId];
         };
 
-        const fluidDbKeys = Object.keys(FluidDatabase);
-        const materialDbKeys = Object.keys(MaterialDatabase);
-        const foulingDbKeys = Object.keys(FoulingDatabase);
-
-        const handleFluidChange = (fluidState) => {
-            const db = FluidDatabase[fluidState.name];
-            if (db) {
-                const defaultTemperature = (db.minT + db.maxT) / 2;
-                fluidState.tempIn = unitSystem.value === 'English'
-                    ? HeatExchangerEngine.C_to_F(defaultTemperature)
-                    : defaultTemperature;
-                const propertyTemperature = unitSystem.value === 'English'
-                    ? HeatExchangerEngine.F_to_C(fluidState.tempIn)
-                    : fluidState.tempIn;
-                const properties = getFluidProperties(db, propertyTemperature);
-                fluidState.cp = properties.cp;
-                fluidState.rho = properties.rho;
-                fluidState.mu = properties.mu;
-                fluidState.k = properties.k;
-                fluidState.minT = db.minT;
-                fluidState.maxT = db.maxT;
-
-                if (unitSystem.value === 'English') {
-                    const C = HeatExchangerEngine.CONV;
-                    fluidState.cp /= C.cp_eng_to_si;
-                    fluidState.rho /= C.rho_eng_to_si;
-                    fluidState.mu /= C.mu_eng_to_si;
-                    fluidState.k /= C.k_eng_to_si;
-                }
-
-                checkFluidTemp(fluidState);
-            }
+        const hxTypePassMap = {
+            '1-1': { shellPasses: 1, tubePasses: 1 },
+            '1-2': { shellPasses: 1, tubePasses: 2 },
+            '1-4': { shellPasses: 1, tubePasses: 4 },
+            '2-4': { shellPasses: 2, tubePasses: 4 }
         };
+
+        const handleHxTypeChange = () => {
+            const mapping = hxTypePassMap[config.value.hxType];
+            if (mapping) {
+                config.value.shell.passes = mapping.shellPasses;
+                config.value.tube.passes = mapping.tubePasses;
+            }
+            runSimulation();
+        };
+
+        const materialDbKeys = Object.keys(MaterialDatabase);
 
         const handleMaterialChange = () => {
             const db = MaterialDatabase[config.value.tube.material];
@@ -168,40 +174,6 @@ const App = {
                 config.value.tube.k_material = k;
                 checkAndRunSimulation();
             }
-        };
-
-        const handleFoulingChange = (fluidState) => {
-            const db = FoulingDatabase[fluidState.fouling];
-            if (db) {
-                let Rf = db.Rf;
-                if (unitSystem.value === 'English') Rf /= HeatExchangerEngine.CONV.U_si_to_eng;
-                fluidState.Rf = Rf;
-                checkAndRunSimulation();
-            }
-        };
-
-        const checkFluidTemp = (fluidState) => {
-            const db = FluidDatabase[fluidState.name];
-            if (!db) return;
-
-            fluidState.warning = '';
-            fluidState.description = db.description;
-
-            let maxT = db.maxT;
-            let minT = db.minT;
-            if (unitSystem.value === 'English') {
-                maxT = HeatExchangerEngine.C_to_F(maxT);
-                minT = HeatExchangerEngine.C_to_F(minT);
-            }
-
-            if (fluidState.tempIn > maxT) {
-                fluidState.warning = `Fluid exceeds boiling point (${maxT.toFixed(1)}°)`;
-            } else if (fluidState.tempIn < minT) {
-                fluidState.warning = `Fluid drops below freezing point (${minT.toFixed(1)}°). Switch to a phase-change model or raise the temperature.`;
-            }
-
-            // Manually trigger simulation after check
-            runSimulation();
         };
 
         let engine = null;
@@ -240,7 +212,9 @@ const App = {
 
         const runSimulation = () => {
             if (!engine || !renderer) return;
-            const result = engine.calculate(config.value, unitSystem.value);
+            const calculationConfig = JSON.parse(JSON.stringify(config.value));
+            calculationConfig.calculationMethod = calculationMethod.value;
+            const result = engine.calculate(calculationConfig, unitSystem.value);
             if (!result.valid) {
                 simulationResults.value = null;
                 calculationError.value = result.error;
@@ -404,36 +378,17 @@ const App = {
             }, 1000);
         };
 
-        const getOverdesignColor = (val) => {
-            if (Math.abs(val) < 0.05) {
-                return '#64748b'; // Gray/slate
-            } else if (val > 0 && val <= 30) {
-                return '#10b981'; // Green
-            } else if (val >= 40 && val <= 50) {
-                return '#f97316'; // Orange
-            } else {
-                return '#ef4444'; // Red
-            }
-        };
-
         return {
             config,
-            getOverdesignColor,
             openPanels,
             togglePanel,
             runSimulation,
             checkAndRunSimulation,
             exportConfigAsJSON,
-            fluidDbKeys,
             materialDbKeys,
-            foulingDbKeys,
-            FluidDatabase,
             MaterialDatabase,
-            FoulingDatabase,
-            handleFluidChange,
             handleMaterialChange,
-            handleFoulingChange,
-            checkFluidTemp,
+            handleHxTypeChange,
             simulationResults,
             calculationError,
             showGraphs,
@@ -445,6 +400,8 @@ const App = {
             showResultsPanel,
             toggleResultsPanel,
             unitSystem,
+            calculationMethod,
+            toggleCalculationMethod,
             setUnitSystem,
             resetToDefaults,
             aboutPdfUrl: new URL('HX_About_page 1.2.pdf', import.meta.url).href
@@ -465,6 +422,17 @@ const App = {
                         English (Imperial)
                     </button>
                 </div>
+                <button @click="toggleCalculationMethod" style="padding: 8px 12px; background: #0f766e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
+                    Method: {{ calculationMethod }}
+                </button>
+                <div v-if="calculationMethod === 'LMTD'" class="unit-toggle" style="display: flex; gap: 4px; background: #e2e8f0; padding: 4px; border-radius: 6px;">
+                    <button @click="config.lmtdKnownFluid = 'hot'; runSimulation()" :style="{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: config.lmtdKnownFluid === 'hot' ? 'white' : 'transparent', color: config.lmtdKnownFluid === 'hot' ? '#0f172a' : '#64748b', boxShadow: config.lmtdKnownFluid === 'hot' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }">
+                        Shell Defines Outlet
+                    </button>
+                    <button @click="config.lmtdKnownFluid = 'cold'; runSimulation()" :style="{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: config.lmtdKnownFluid === 'cold' ? 'white' : 'transparent', color: config.lmtdKnownFluid === 'cold' ? '#0f172a' : '#64748b', boxShadow: config.lmtdKnownFluid === 'cold' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }">
+                        Tube Defines Outlet
+                    </button>
+                </div>
                 <button class="mobile-toggle-btn" @click="toggleResultsPanel" style="padding: 8px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                     Results
                 </button>
@@ -477,7 +445,7 @@ const App = {
                 <div class="sidebar-content" style="padding: 0;">
                     
                     <!-- Shell Settings -->
-                    <div class="accordion-section">
+                    <div class="accordion-section" v-if="calculationMethod === 'NTU'">
                         <div class="accordion-header" :class="{ active: openPanels.shell }" @click="togglePanel('shell')">
                             <span>Shell Settings</span>
                             <span class="chevron">{{ openPanels.shell ? '▼' : '▶' }}</span>
@@ -490,7 +458,7 @@ const App = {
                                     <option :value="2">2 Passes</option>
                                 </select>
                             </div>
-                            <div class="input-group">
+                            <div class="input-group" v-if="calculationMethod === 'NTU'">
                                 <label>Shell Diameter (Nominal ID)</label>
                                 <select v-model.number="config.shell.diameter" @change="runSimulation">
                                     <optgroup label="Light Industrial / Utility">
@@ -517,20 +485,14 @@ const App = {
                                 </select>
                             </div>
                             <div class="input-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" v-model="config.useCustomU" @change="runSimulation" style="width: auto;">
-                                    Override Overall Heat Transfer Coefficient (U)
-                                </label>
-                            </div>
-                            <div class="input-group" v-if="config.useCustomU">
-                                <label>Custom U Value ({{ unitSystem === 'SI' ? 'W/m²K' : 'BTU/(hr·ft²·°F)' }})</label>
+                                <label>Overall Heat Transfer Coefficient, U ({{ unitSystem === 'SI' ? 'W/m²K' : 'BTU/(hr·ft²·°F)' }})</label>
                                 <input type="number" v-model.number="config.customU" step="10" @input="runSimulation">
                             </div>
                         </div>
                     </div>
 
                     <!-- Tube Bundle -->
-                    <div class="accordion-section">
+                    <div class="accordion-section" v-if="calculationMethod === 'NTU'">
                         <div class="accordion-header" :class="{ active: openPanels.tube }" @click="togglePanel('tube')">
                             <span>Tube Bundle</span>
                             <span class="chevron">{{ openPanels.tube ? '▼' : '▶' }}</span>
@@ -567,13 +529,48 @@ const App = {
                                 <label>Tubes per Pass</label>
                                 <input type="number" v-model.number="config.tube.tubesPerPass" min="1" max="1000" @input="runSimulation">
                             </div>
-                            <div class="input-group">
+                            <div class="input-group" v-if="calculationMethod === 'NTU'">
                                 <label>Tube Length ({{ unitSystem === 'SI' ? 'm' : 'ft' }})</label>
                                 <input type="number" v-model.number="config.tube.length" step="0.1" @input="runSimulation">
                             </div>
-                            <div class="input-group">
+                            <div class="input-group" v-if="calculationMethod === 'NTU'">
                                 <label>Outer Diameter ({{ unitSystem === 'SI' ? 'm' : 'in' }})</label>
                                 <input type="number" v-model.number="config.tube.outerDiameter" step="0.001" @input="runSimulation">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Heat Exchanger Settings (LMTD only) -->
+                    <div class="accordion-section" v-if="calculationMethod === 'LMTD'">
+                        <div class="accordion-header" :class="{ active: openPanels.hxSettings }" @click="togglePanel('hxSettings')">
+                            <span>Heat Exchanger Settings</span>
+                            <span class="chevron">{{ openPanels.hxSettings ? '▼' : '▶' }}</span>
+                        </div>
+                        <div class="accordion-body" v-if="openPanels.hxSettings">
+                            <div class="input-group">
+                                <label>Overall Heat Transfer Coefficient, U ({{ unitSystem === 'SI' ? 'W/m²K' : 'BTU/(hr·ft²·°F)' }})</label>
+                                <input type="number" v-model.number="config.customU" step="10" @input="runSimulation">
+                            </div>
+                            <div class="input-group">
+                                <label>Heat Exchanger Type</label>
+                                <select v-model="config.hxType" @change="handleHxTypeChange">
+                                    <option value="1-1">1 Shell Pass - 1 Tube Pass</option>
+                                    <option value="1-2">1 Shell Pass - 2 Tube Passes</option>
+                                    <option value="1-4">1 Shell Pass - 4 Tube Passes</option>
+                                    <option value="2-4">2 Shell Passes - 4 Tube Passes</option>
+                                    <option value="other">Other Type</option>
+                                </select>
+                            </div>
+                            <div class="input-group" v-if="config.hxType === '1-1'">
+                                <label>Flow Arrangement</label>
+                                <select v-model="config.tube.flowArrangement" @change="runSimulation">
+                                    <option value="counter">Counter Flow</option>
+                                    <option value="parallel">Parallel Flow</option>
+                                </select>
+                            </div>
+                            <div class="input-group" v-if="config.hxType === 'other'">
+                                <label>F-Factor (manual entry)</label>
+                                <input type="number" v-model.number="config.manualFFactor" step="0.01" @input="runSimulation">
                             </div>
                         </div>
                     </div>
@@ -586,20 +583,16 @@ const App = {
                         </div>
                         <div class="accordion-body" v-if="openPanels.hotFluid">
                             <div class="input-group">
-                                <label>Fluid Type</label>
-                                <select v-model="config.hotFluid.name" @change="handleFluidChange(config.hotFluid)">
-                                    <option v-for="key in fluidDbKeys" :key="key" :value="key">{{ key }}</option>
-                                </select>
-                                <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
-                                    {{ FluidDatabase[config.hotFluid.name]?.description }}
-                                </div>
-                                <div v-if="config.hotFluid.warning" style="color: #ef4444; font-size: 11px; margin-top: 6px; padding: 6px; background: #fee2e2; border-radius: 4px; border: 1px solid #fca5a5;">
-                                    <strong>Warning:</strong> {{ config.hotFluid.warning }}
-                                </div>
-                            </div>
-                            <div class="input-group">
                                 <label>Inlet Temperature ({{ unitSystem === 'SI' ? '°C' : '°F' }})</label>
-                                <input type="number" v-model.number="config.hotFluid.tempIn" @change="checkFluidTemp(config.hotFluid)">
+                                <input type="number" v-model.number="config.hotFluid.tempIn" @input="runSimulation">
+                            </div>
+                            <div class="input-group" v-if="calculationMethod === 'LMTD' && config.lmtdKnownFluid === 'hot'">
+                                <label>Outlet Temperature ({{ unitSystem === 'SI' ? '°C' : '°F' }})</label>
+                                <input type="number" v-model.number="config.hotFluid.tempOut" @input="runSimulation">
+                            </div>
+                            <div class="input-group" v-if="calculationMethod === 'LMTD' && config.lmtdKnownFluid === 'cold'">
+                                <label>Outlet Temperature (calculated)</label>
+                                <input type="text" :value="simulationResults ? simulationResults.hotTempOut.toFixed(1) : '--'" disabled style="background: #f1f5f9; color: #64748b;">
                             </div>
                             <div class="input-group">
                                 <label>Mass Flow ({{ unitSystem === 'SI' ? 'kg/s' : 'lb/hr' }})</label>
@@ -620,20 +613,16 @@ const App = {
                         </div>
                         <div class="accordion-body" v-if="openPanels.coldFluid">
                             <div class="input-group">
-                                <label>Fluid Type</label>
-                                <select v-model="config.coldFluid.name" @change="handleFluidChange(config.coldFluid)">
-                                    <option v-for="key in fluidDbKeys" :key="key" :value="key">{{ key }}</option>
-                                </select>
-                                <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
-                                    {{ FluidDatabase[config.coldFluid.name]?.description }}
-                                </div>
-                            </div>
-                            <div class="input-group">
                                 <label>Inlet Temperature ({{ unitSystem === 'SI' ? '°C' : '°F' }})</label>
-                                <input type="number" v-model.number="config.coldFluid.tempIn" @change="checkFluidTemp(config.coldFluid)">
-                                <div v-if="config.coldFluid.warning" style="color: #ef4444; font-size: 11px; margin-top: 6px; padding: 6px; background: #fee2e2; border-radius: 4px; border: 1px solid #fca5a5;">
-                                    <strong>Warning:</strong> {{ config.coldFluid.warning }}
-                                </div>
+                                <input type="number" v-model.number="config.coldFluid.tempIn" @input="runSimulation">
+                            </div>
+                            <div class="input-group" v-if="calculationMethod === 'LMTD' && config.lmtdKnownFluid === 'cold'">
+                                <label>Outlet Temperature ({{ unitSystem === 'SI' ? '°C' : '°F' }})</label>
+                                <input type="number" v-model.number="config.coldFluid.tempOut" @input="runSimulation">
+                            </div>
+                            <div class="input-group" v-if="calculationMethod === 'LMTD' && config.lmtdKnownFluid === 'hot'">
+                                <label>Outlet Temperature (calculated)</label>
+                                <input type="text" :value="simulationResults ? simulationResults.coldTempOut.toFixed(1) : '--'" disabled style="background: #f1f5f9; color: #64748b;">
                             </div>
                             <div class="input-group">
                                 <label>Mass Flow ({{ unitSystem === 'SI' ? 'kg/s' : 'lb/hr' }})</label>
@@ -642,15 +631,6 @@ const App = {
                             <div class="input-group">
                                 <label>Specific Heat, Cp ({{ unitSystem === 'SI' ? 'kJ/kg·K' : 'BTU/(lb·°F)' }})</label>
                                 <input type="number" v-model.number="config.coldFluid.cp" step="0.01" @input="runSimulation">
-                            </div>
-                            <div class="input-group">
-                                <label>Fouling Margin (Tube Side)</label>
-                                <select v-model="config.coldFluid.fouling" @change="handleFoulingChange(config.coldFluid)">
-                                    <option v-for="key in foulingDbKeys" :key="key" :value="key">{{ key }}</option>
-                                </select>
-                                <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
-                                    {{ FoulingDatabase[config.coldFluid.fouling]?.description }}
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -667,6 +647,9 @@ const App = {
 
             <!-- Main Canvas Area -->
             <div class="main-area" style="flex-direction: column; position: relative; overflow: hidden;">
+                <div v-if="calculationMethod === 'LMTD' && config.hxType === 'other'" style="padding: 10px 16px; background: #fef3c7; color: #92400e; border-bottom: 1px solid #fbbf24; font-weight: 600; font-size: 13px; text-align: center;">
+                    Not accurate HX
+                </div>
                 <div style="flex: 1; position: relative; width: 100%;">
                     <canvas id="hxCanvas" style="width: 100%; height: 100%; display: block; position: absolute;"></canvas>
                     <div v-if="calculationError" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(90%, 420px); padding: 16px; color: #991b1b; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 6px; text-align: center; font-weight: 600; z-index: 5;">
@@ -704,101 +687,60 @@ const App = {
                     <!-- Design Results List (Ungrouped) -->
                     <div class="dashboard-card" style="position: static; flex: none; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
                         <div class="card-body" style="display: flex; flex-direction: column; gap: 10px;">
-                            <div class="data-row">
-                                <span class="data-label">Heat Duty:</span>
+                            <div class="data-row" v-if="calculationMethod === 'NTU'">
+                                <span class="data-label">Rate of Heat Transfer:</span>
                                 <span class="data-value">{{ simulationResults.Q.toFixed(1) }} {{ unitSystem === 'SI' ? 'kW' : 'BTU/hr' }}</span>
                             </div>
-                            <div class="data-row">
+                            <div class="data-row" v-if="calculationMethod === 'NTU'">
                                 <span class="data-label">Th,out:</span>
                                 <span class="data-value">{{ simulationResults.hotTempOut.toFixed(1) }} {{ unitSystem === 'SI' ? '°C' : '°F' }}</span>
                             </div>
-                            <div class="data-row">
+                            <div class="data-row" v-if="calculationMethod === 'NTU'">
                                 <span class="data-label">Tc,out:</span>
                                 <span class="data-value">{{ simulationResults.coldTempOut.toFixed(1) }} {{ unitSystem === 'SI' ? '°C' : '°F' }}</span>
                             </div>
-                            <div class="data-row">
+                            <div class="data-row" v-if="calculationMethod === 'NTU'">
                                 <span class="data-label">Effectiveness (ε):</span>
                                 <span class="data-value" style="display: flex; flex-direction: column; align-items: flex-end;">
                                     <span>{{ simulationResults.epsilon.toFixed(2) }}</span>
                                 </span>
                             </div>
-                            <div v-if="simulationResults.NTU > 2.0" style="margin-top: 10px; margin-bottom: 12px; padding: 10px; background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; color: #b45309; border-radius: 4px; font-weight: 500; font-size: 13px;">
-                                <strong>High NTU / Surface area optimized.</strong>
+                            <div class="data-row" v-if="calculationMethod === 'LMTD'">
+                                <span class="data-label">Rate of Heat Transfer:</span>
+                                <span class="data-value">{{ simulationResults.Q.toFixed(1) }} {{ unitSystem === 'SI' ? 'kW' : 'BTU/hr' }}</span>
                             </div>
-                            <div class="data-row">
-                                <span class="data-label">LMTD F-Factor:</span>
+                            <div class="data-row" v-if="calculationMethod === 'LMTD'">
+                                <span class="data-label">&Delta;T<sub>lm</sub>:</span>
+                                <span class="data-value">{{ simulationResults.LMTD.toFixed(2) }} {{ unitSystem === 'SI' ? 'K' : '°F' }}</span>
+                            </div>
+                            <div class="data-row" v-if="calculationMethod === 'LMTD'">
+                                <span class="data-label">P:</span>
+                                <span class="data-value">{{ simulationResults.P.toFixed(3) }}</span>
+                            </div>
+                            <div class="data-row" v-if="calculationMethod === 'LMTD'">
+                                <span class="data-label">R:</span>
+                                <span class="data-value">{{ simulationResults.R.toFixed(3) }}</span>
+                            </div>
+                            <div class="data-row" v-if="calculationMethod === 'LMTD'">
+                                <span class="data-label">Correction Factor:</span>
                                 <span class="data-value" style="display: flex; flex-direction: column; align-items: flex-end;">
                                     <span>
-                                        {{ simulationResults.F_factor.toFixed(2) }} 
+                                        {{ simulationResults.F_factor.toFixed(3) }} 
                                         <span v-if="simulationResults.F_factor >= 0.75" class="status-ok">[OK]</span>
-                                    </span>
-                                    <span v-if="simulationResults.F_factor < 0.75" style="color: #ea580c; font-weight: bold; font-size: 10px; margin-top: 2px; text-align: right;">
-                                        [WARNING: Temperature Cross / Low Efficiency]
                                     </span>
                                 </span>
                             </div>
                             
                             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 5px 0;" />
                             
-                            <div class="data-row">
+                            <div class="data-row" v-if="calculationMethod === 'NTU'">
                                 <span class="data-label">Total Area:</span>
                                 <span class="data-value">{{ simulationResults.A.toFixed(1) }} {{ unitSystem === 'SI' ? 'm²' : 'ft²' }}</span>
                             </div>
-                            <div class="data-row">
+                            <div class="data-row" v-if="calculationMethod === 'LMTD'">
                                 <span class="data-label">Req. Area:</span>
                                 <span class="data-value">{{ simulationResults.A_req.toFixed(1) }} {{ unitSystem === 'SI' ? 'm²' : 'ft²' }}</span>
                             </div>
-                            <div class="data-row">
-                                <span class="data-label">Overdesign:</span>
-                                <span class="data-value" :style="{ color: getOverdesignColor(simulationResults.overdesign), fontWeight: 'bold' }">
-                                    {{ Math.abs(simulationResults.overdesign) < 0.05 ? '0.0' : (simulationResults.overdesign > 0 ? '+' + simulationResults.overdesign.toFixed(1) : simulationResults.overdesign.toFixed(1)) }}%
-                                </span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Calc U:</span>
-                                <span class="data-value">{{ simulationResults.U.toFixed(0) }} {{ unitSystem === 'SI' ? 'W/m²K' : 'BTU/h·ft²·°F' }}</span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Fouling Factor Rf:</span>
-                                <span class="data-value">{{ simulationResults.Rf.toFixed(4) }}</span>
-                            </div>
-                            
-                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 5px 0;" />
-                            
-                            <div class="data-row">
-                                <span class="data-label">Tube Velocity:</span>
-                                <span class="data-value" style="display: flex; flex-direction: column; align-items: flex-end;">
-                                    <span>{{ simulationResults.v_tube.toFixed(1) }} {{ unitSystem === 'SI' ? 'm/s' : 'ft/s' }}</span>
-                                    <span style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                                        Re: {{ simulationResults.Re_tube.toFixed(0) }} 
-                                        <strong :style="{ color: simulationResults.Re_tube >= 4000 ? '#10b981' : (simulationResults.Re_tube < 2300 ? '#f59e0b' : '#3b82f6') }">
-                                            [{{ simulationResults.Re_tube >= 4000 ? 'Turbulent' : (simulationResults.Re_tube < 2300 ? 'Laminar' : 'Transitional') }}]
-                                        </strong>
-                                    </span>
-                                </span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Shell Velocity:</span>
-                                <span class="data-value" style="display: flex; flex-direction: column; align-items: flex-end;">
-                                    <span>{{ simulationResults.v_shell.toFixed(1) }} {{ unitSystem === 'SI' ? 'm/s' : 'ft/s' }}</span>
-                                    <span style="font-size: 12px; color: #64748b; margin-top: 2px;">
-                                        Re: {{ simulationResults.Re_shell.toFixed(0) }} 
-                                        <strong :style="{ color: simulationResults.Re_shell >= 4000 ? '#10b981' : (simulationResults.Re_shell < 2300 ? '#f59e0b' : '#3b82f6') }">
-                                            [{{ simulationResults.Re_shell >= 4000 ? 'Turbulent' : (simulationResults.Re_shell < 2300 ? 'Laminar' : 'Transitional') }}]
-                                        </strong>
-                                    </span>
-                                </span>
-                            </div>
-                            <!-- Pressure-drop dashboard temporarily disabled:
-                            <div class="data-row">
-                                <span class="data-label">Tube ΔP:</span>
-                                <span class="data-value">{{ simulationResults.dP_tube.toFixed(1) }} {{ unitSystem === 'SI' ? 'kPa' : 'psi' }}</span>
-                            </div>
-                            <div class="data-row">
-                                <span class="data-label">Shell ΔP:</span>
-                                <span class="data-value">{{ simulationResults.dP_shell.toFixed(1) }} {{ unitSystem === 'SI' ? 'kPa' : 'psi' }}</span>
-                            </div>
-                            -->
                         </div>
                     </div>
                     
@@ -827,6 +769,10 @@ const App = {
                     </div>
                 </div>
             </div>
+            </div>
+
+            <div style="position: fixed; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 11px; color: #94a3b8; opacity: 0.6; pointer-events: none; z-index: 5;">
+                Preliminary Model. For Concept Only.
             </div>
 
             <!-- Graphs removed from modal overlay and embedded into drawer -->

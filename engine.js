@@ -32,6 +32,75 @@ export class HeatExchangerEngine {
     static F_to_C(f) { return (f - 32) * 5/9; }
     static C_to_F(c) { return c * 9/5 + 32; }
 
+    // 1 shell pass / 2 (or multiples of 2) tube passes
+    static calculateF12(R, P) {
+        if (Math.abs(R - 1) < 1e-6) R += 1e-6; // avoid exact 0/0; formula is continuous here
+        const sqrtTerm = Math.sqrt(R * R + 1);
+        const numerator = sqrtTerm * Math.log((1 - P) / (1 - P * R));
+        const denominatorRatio = ((2 / P) - 1 - R + sqrtTerm) / ((2 / P) - 1 - R - sqrtTerm);
+        const denominator = (R - 1) * Math.log(Math.max(0.0001, denominatorRatio));
+        return Math.max(0.1, Math.min(1, numerator / denominator));
+    }
+
+    // 2 shell passes / 4 (or multiples of 4) tube passes
+    static calculateF24(R, P) {
+        if (Math.abs(R - 1) < 1e-6) R += 1e-6; // avoid exact 0/0; formula is continuous here
+        const sqrtTerm = Math.sqrt(R * R + 1);
+        const crossTerm = Math.sqrt(Math.max(0, (1 - P) * (1 - P * R)));
+        const A = (2 / P) - 1 - R + (2 / P) * crossTerm;
+        const numerator = sqrtTerm * Math.log((1 - P) / (1 - P * R));
+        const denominatorRatio = (A + sqrtTerm) / (A - sqrtTerm);
+        const denominator = 2 * (R - 1) * Math.log(Math.max(0.0001, denominatorRatio));
+        return Math.max(0.1, Math.min(1, numerator / denominator));
+    }
+
+    // 1 shell pass / 4 tube passes; requires solving for the intermediate temperature t_i by bisection
+    static calculateF14(R, P, T1, T2, t1, t2) {
+        if (Math.abs(R - 1) < 1e-6) R += 1e-6; // avoid exact 0/0; formula is continuous here
+        const sqrtTerm = Math.sqrt(4 * R * R + 1);
+
+        const residual = (ti) => {
+            const V = (ti - t1) / (T1 - T2 + 2 * t1 - 2 * ti);
+            const ratio = (1 + V * (sqrtTerm - 2 * R)) / (1 - V * (sqrtTerm + 2 * R));
+            if (!(ratio > 0)) return NaN;
+            return sqrtTerm * Math.log((t2 - ti) / (ti - t1)) - Math.log(ratio);
+        };
+
+        const lower = Math.min(t1, t2);
+        const upper = Math.max(t1, t2);
+        const span = upper - lower;
+        if (span <= 0) return 1;
+        const margin = span * 1e-6;
+        let lo = lower + margin;
+        let hi = upper - margin;
+        let residLo = residual(lo);
+        let residHi = residual(hi);
+
+        if (!isFinite(residLo) || !isFinite(residHi) || residLo * residHi > 0) {
+            return 0.85; // intermediate temperature could not be bracketed; fall back to a conservative estimate
+        }
+
+        let ti = (lo + hi) / 2;
+        for (let i = 0; i < 100; i++) {
+            ti = (lo + hi) / 2;
+            const residMid = residual(ti);
+            if (!isFinite(residMid)) break;
+            if (residLo * residMid <= 0) {
+                hi = ti;
+                residHi = residMid;
+            } else {
+                lo = ti;
+                residLo = residMid;
+            }
+        }
+
+        const V = (ti - t1) / (T1 - T2 + 2 * t1 - 2 * ti);
+        const numerator = sqrtTerm * Math.log((1 - P) / (1 - P * R));
+        const denominatorRatio = (1 + V * (sqrtTerm - 2 * R)) / (1 - V * (sqrtTerm + 2 * R));
+        const denominator = 2 * (R - 1) * Math.log(Math.max(0.0001, denominatorRatio));
+        return Math.max(0.1, Math.min(1, numerator / denominator));
+    }
+
     calculate(uiConfig, unitSystem = 'SI', propertyIteration = 0, inputIsSI = false) {
         let config = JSON.parse(JSON.stringify(uiConfig));
         
@@ -40,13 +109,14 @@ export class HeatExchangerEngine {
             const C = HeatExchangerEngine.CONV;
             
             config.shell.diameter *= C.in_to_m;
-            if (config.useCustomU) config.customU *= C.U_eng_to_si;
+            config.customU *= C.U_eng_to_si;
             config.tube.length *= C.ft_to_m;
             config.tube.outerDiameter *= C.in_to_m;
             if (config.tube.k_material) config.tube.k_material *= C.k_eng_to_si;
             
             const translateFluid = (f) => {
                 f.tempIn = HeatExchangerEngine.F_to_C(f.tempIn);
+                if (f.tempOut !== undefined) f.tempOut = HeatExchangerEngine.F_to_C(f.tempOut);
                 f.massFlow *= C.massflow_eng_to_si;
                 f.cp *= C.cp_eng_to_si;
                 if (f.rho) f.rho *= C.rho_eng_to_si;
@@ -141,24 +211,97 @@ export class HeatExchangerEngine {
         const Rf_cold = config.coldFluid.Rf || 0;
         const Rf_total = Rf_hot + Rf_cold;
 
-        // 6. Overall Heat Transfer Coefficient U
-        const area_ratio = Do / Di;
-        const U_clean_inv = (1 / h_shell) + R_wall + (area_ratio * (1 / h_tube));
-        const U = 1 / U_clean_inv;
-
-        const U_dirty_inv = U_clean_inv + Rf_hot + (area_ratio * Rf_cold);
-        let U_dirty = 1 / U_dirty_inv;
-
-        // Custom U Override
-        if (config.useCustomU) {
-            U_dirty = config.customU;
-        }
+        // Overall Heat Transfer Coefficient is a direct user input
+        let U_dirty = config.customU;
 
         const UkW = U_dirty / 1000;
         const Rf = Rf_total;
         
         const C_h = config.hotFluid.massFlow * config.hotFluid.cp;
         const C_c = config.coldFluid.massFlow * config.coldFluid.cp;
+
+        if (config.calculationMethod === 'LMTD') {
+            const knownFluid = config.lmtdKnownFluid === 'cold' ? 'cold' : 'hot';
+            let hotTempOut, coldTempOut, Q;
+            if (knownFluid === 'hot') {
+                hotTempOut = config.hotFluid.tempOut;
+                Q = C_h * (config.hotFluid.tempIn - hotTempOut);
+                coldTempOut = config.coldFluid.tempIn + Q / C_c;
+            } else {
+                coldTempOut = config.coldFluid.tempOut;
+                Q = C_c * (coldTempOut - config.coldFluid.tempIn);
+                hotTempOut = config.hotFluid.tempIn - Q / C_h;
+            }
+            const deltaT1 = config.hotFluid.tempIn - coldTempOut;
+            const deltaT2 = hotTempOut - config.coldFluid.tempIn;
+            if (Q <= 0 || deltaT1 <= 0 || deltaT2 <= 0) {
+                return { valid: false, error: 'LMTD inputs must produce positive heat transfer and temperature differences.' };
+            }
+            const LMTD = Math.abs(deltaT1 - deltaT2) < 0.01
+                ? deltaT1
+                : (deltaT1 - deltaT2) / Math.log(deltaT1 / deltaT2);
+
+            const P = (coldTempOut - config.coldFluid.tempIn) /
+                (config.hotFluid.tempIn - config.coldFluid.tempIn);
+            const R = (config.hotFluid.tempIn - hotTempOut) /
+                (coldTempOut - config.coldFluid.tempIn);
+
+            let F_factor;
+            switch (config.hxType) {
+                case '1-2':
+                    F_factor = HeatExchangerEngine.calculateF12(R, P);
+                    break;
+                case '1-4':
+                    F_factor = HeatExchangerEngine.calculateF14(R, P, config.hotFluid.tempIn, hotTempOut, config.coldFluid.tempIn, coldTempOut);
+                    break;
+                case '2-4':
+                    F_factor = HeatExchangerEngine.calculateF24(R, P);
+                    break;
+                case 'other':
+                    F_factor = config.manualFFactor;
+                    if (!(F_factor > 0) || F_factor > 1) {
+                        return { valid: false, error: 'Enter a valid F-factor greater than 0 and no greater than 1.' };
+                    }
+                    break;
+                case '1-1':
+                default:
+                    F_factor = 1;
+                    break;
+            }
+
+            const A_req = Q / (U_dirty / 1000 * LMTD * F_factor);
+            const result = {
+                valid: true,
+                A: A_req,
+                Q,
+                hotTempOut,
+                coldTempOut,
+                LMTD,
+                F_factor,
+                P,
+                R,
+                A_req,
+                profile: this.calculateProfile(config, Q, hotTempOut, coldTempOut, A_req, UkW, C_h, C_c),
+                U: U_dirty
+            };
+            if (unitSystem === 'English') {
+                const C = HeatExchangerEngine.CONV;
+                result.A *= C.sqm_to_sqft;
+                result.A_req *= C.sqm_to_sqft;
+                result.Q *= C.power_si_to_eng;
+                result.hotTempOut = HeatExchangerEngine.C_to_F(result.hotTempOut);
+                result.coldTempOut = HeatExchangerEngine.C_to_F(result.coldTempOut);
+                result.U *= C.U_si_to_eng;
+                result.LMTD *= 9 / 5;
+                result.profile = result.profile.map(point => ({
+                    x: point.x,
+                    Th: HeatExchangerEngine.C_to_F(point.Th),
+                    Tc: HeatExchangerEngine.C_to_F(point.Tc),
+                    tubePasses: point.tubePasses.map(temp => HeatExchangerEngine.C_to_F(temp))
+                }));
+            }
+            return result;
+        }
         
         const C_min = Math.min(C_h, C_c);
         const C_max = Math.max(C_h, C_c);

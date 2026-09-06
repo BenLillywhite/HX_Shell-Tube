@@ -140,6 +140,13 @@ export class Renderer {
         // Visually fix the model image size to the 24-inch (0.6096m) size per user request
         const visualDiameter = 0.6096;
         let shellHeight = baselineHeight * (visualDiameter / baselineDiameter);
+        // Grow the shell so tubes get more room as pass count increases
+        const requestedTubePasses = this.config.tube.passes;
+        const minimumTubeSpacing = 24;
+        const minimumShellHeight = requestedTubePasses > 1
+            ? (requestedTubePasses + 1) * minimumTubeSpacing + 40
+            : 80;
+        shellHeight = Math.max(shellHeight, minimumShellHeight);
         // Clamp visually so it doesn't break out of the canvas, but don't limit the actual math
         shellHeight = Math.max(80, Math.min(shellHeight, maxShellHeight));
         
@@ -292,7 +299,7 @@ export class Renderer {
             tubeSpacingGlobal = totalTubeArea / (passes + 1);
         }
         
-        const tubeHeight = Math.max(10, Math.min(30, tubeSpacingGlobal * 0.6));
+        const tubeHeight = Math.max(6, Math.min(30, tubeSpacingGlobal * 0.6));
         
         const getTy = (pass) => {
             if (shellPasses === 2) {

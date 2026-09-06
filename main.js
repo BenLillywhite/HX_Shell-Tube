@@ -1,5 +1,5 @@
 import { createApp, ref, onMounted, watch, nextTick } from 'vue';
-import { HeatExchangerEngine } from './engine.js?v=20260906';
+import { HeatExchangerEngine } from './engine.js?v=20260906_v2';
 import { Renderer } from './render.js?v=20260906';
 import { MaterialDatabase } from './database.js?v=20260906';
 
@@ -19,73 +19,6 @@ const App = {
         const showResultsPanel = ref(window.innerWidth >= 1200);
         const unitSystem = ref('SI');
         const calculationMethod = ref('NTU');
-        let savedMethodConfigs = { NTU: null, LMTD: null };
-
-        const toggleConfigPanel = () => {
-            showConfigPanel.value = !showConfigPanel.value;
-            if (showConfigPanel.value && window.innerWidth < 1200) {
-                showResultsPanel.value = false;
-            }
-        };
-
-        const toggleResultsPanel = () => {
-            showResultsPanel.value = !showResultsPanel.value;
-            if (showResultsPanel.value && window.innerWidth < 1200) {
-                showConfigPanel.value = false;
-            }
-        };
-
-        const convertConfigUnits = (c, toEng) => {
-            const C = HeatExchangerEngine.CONV;
-
-            c.shell.diameter = toEng ? c.shell.diameter * C.m_to_in : c.shell.diameter * C.in_to_m;
-            c.tube.length = toEng ? c.tube.length * C.m_to_ft : c.tube.length * C.ft_to_m;
-            c.tube.outerDiameter = toEng ? c.tube.outerDiameter * C.m_to_in : c.tube.outerDiameter * C.in_to_m;
-
-            c.customU = toEng ? c.customU * C.U_si_to_eng : c.customU * C.U_eng_to_si;
-            if (c.tube.k_material) c.tube.k_material = toEng ? c.tube.k_material / C.k_eng_to_si : c.tube.k_material * C.k_eng_to_si;
-
-            const translateFluid = (f) => {
-                f.tempIn = toEng ? HeatExchangerEngine.C_to_F(f.tempIn) : HeatExchangerEngine.F_to_C(f.tempIn);
-                if (f.tempOut !== undefined) f.tempOut = toEng ? HeatExchangerEngine.C_to_F(f.tempOut) : HeatExchangerEngine.F_to_C(f.tempOut);
-                f.massFlow = toEng ? f.massFlow * C.massflow_si_to_eng : f.massFlow * C.massflow_eng_to_si;
-                f.cp = toEng ? f.cp / C.cp_eng_to_si : f.cp * C.cp_eng_to_si;
-            };
-
-            translateFluid(c.hotFluid);
-            translateFluid(c.coldFluid);
-        };
-
-        const setUnitSystem = (newSys) => {
-            if (unitSystem.value === newSys) return;
-            unitSystem.value = newSys;
-
-            const toEng = newSys === 'English';
-
-            convertConfigUnits(config.value, toEng);
-            for (const method of ['NTU', 'LMTD']) {
-                if (savedMethodConfigs[method]) convertConfigUnits(savedMethodConfigs[method], toEng);
-            }
-
-            runSimulation();
-        };
-
-        const toggleCalculationMethod = () => {
-            const previousMethod = calculationMethod.value;
-            const nextMethod = previousMethod === 'NTU' ? 'LMTD' : 'NTU';
-            savedMethodConfigs[previousMethod] = JSON.parse(JSON.stringify(config.value));
-            let nextConfig = savedMethodConfigs[nextMethod];
-            if (!nextConfig) {
-                // getDefaultConfig always returns SI values; convert to match the active unit system
-                nextConfig = getDefaultConfig(nextMethod);
-                if (unitSystem.value === 'English') {
-                    convertConfigUnits(nextConfig, true);
-                }
-            }
-            config.value = nextConfig;
-            calculationMethod.value = nextMethod;
-            runSimulation();
-        };
 
         const getDefaultConfig = (method = 'NTU') => {
             const defaultConfig = {
@@ -129,14 +62,95 @@ const App = {
             return defaultConfig;
         };
 
-        // Exchanger Configuration State
-        const config = ref(getDefaultConfig('NTU'));
+        let savedMethodConfigs = {
+            NTU: getDefaultConfig('NTU'),
+            LMTD: getDefaultConfig('LMTD')
+        };
+
+        // Exchanger Configuration State (cloned to prevent reference sharing)
+        const config = ref(JSON.parse(JSON.stringify(savedMethodConfigs.NTU)));
+
+        const toggleConfigPanel = () => {
+            showConfigPanel.value = !showConfigPanel.value;
+            if (showConfigPanel.value && window.innerWidth < 1200) {
+                showResultsPanel.value = false;
+            }
+        };
+
+        const toggleResultsPanel = () => {
+            showResultsPanel.value = !showResultsPanel.value;
+            if (showResultsPanel.value && window.innerWidth < 1200) {
+                showConfigPanel.value = false;
+            }
+        };
+
+        const convertConfigUnits = (c, toEng) => {
+            const C = HeatExchangerEngine.CONV;
+
+            // Shell diameter dropdown uses exact integer nominal inches in English and exact 4-decimal meters in SI
+            c.shell.diameter = toEng ? Math.round(c.shell.diameter / 0.0254) : +(c.shell.diameter * 0.0254).toFixed(4);
+            c.tube.length = toEng ? c.tube.length * C.m_to_ft : c.tube.length * C.ft_to_m;
+            c.tube.outerDiameter = toEng ? c.tube.outerDiameter * C.m_to_in : c.tube.outerDiameter * C.in_to_m;
+
+            c.customU = toEng ? c.customU * C.U_si_to_eng : c.customU * C.U_eng_to_si;
+            if (c.tube.k_material) c.tube.k_material = toEng ? c.tube.k_material * C.k_si_to_eng : c.tube.k_material * C.k_eng_to_si;
+
+            const translateFluid = (f) => {
+                f.tempIn = toEng ? HeatExchangerEngine.C_to_F(f.tempIn) : HeatExchangerEngine.F_to_C(f.tempIn);
+                if (f.tempOut !== undefined) f.tempOut = toEng ? HeatExchangerEngine.C_to_F(f.tempOut) : HeatExchangerEngine.F_to_C(f.tempOut);
+                f.massFlow = toEng ? f.massFlow * C.massflow_si_to_eng : f.massFlow * C.massflow_eng_to_si;
+                f.cp = toEng ? f.cp * C.cp_si_to_eng : f.cp * C.cp_eng_to_si;
+            };
+
+            translateFluid(c.hotFluid);
+            translateFluid(c.coldFluid);
+        };
+
+        const setUnitSystem = (newSys) => {
+            if (unitSystem.value === newSys) return;
+            unitSystem.value = newSys;
+
+            const toEng = newSys === 'English';
+
+            // Convert current active config
+            convertConfigUnits(config.value, toEng);
+            // Save a deep clone to the current method's cache
+            savedMethodConfigs[calculationMethod.value] = JSON.parse(JSON.stringify(config.value));
+
+            // Convert the other inactive method's cache once
+            const otherMethod = calculationMethod.value === 'NTU' ? 'LMTD' : 'NTU';
+            if (savedMethodConfigs[otherMethod]) {
+                convertConfigUnits(savedMethodConfigs[otherMethod], toEng);
+            }
+
+            runSimulation();
+        };
+
+        const toggleCalculationMethod = () => {
+            const previousMethod = calculationMethod.value;
+            const nextMethod = previousMethod === 'NTU' ? 'LMTD' : 'NTU';
+            savedMethodConfigs[previousMethod] = JSON.parse(JSON.stringify(config.value));
+            let nextConfig = savedMethodConfigs[nextMethod];
+            if (!nextConfig) {
+                nextConfig = getDefaultConfig(nextMethod);
+                if (unitSystem.value === 'English') {
+                    convertConfigUnits(nextConfig, true);
+                }
+                savedMethodConfigs[nextMethod] = JSON.parse(JSON.stringify(nextConfig));
+            }
+            config.value = JSON.parse(JSON.stringify(nextConfig));
+            calculationMethod.value = nextMethod;
+            runSimulation();
+        };
 
         const resetToDefaults = () => {
             const currentUnit = unitSystem.value;
             unitSystem.value = 'SI';
-            savedMethodConfigs = { NTU: null, LMTD: null };
-            config.value = getDefaultConfig(calculationMethod.value);
+            savedMethodConfigs = {
+                NTU: getDefaultConfig('NTU'),
+                LMTD: getDefaultConfig('LMTD')
+            };
+            config.value = JSON.parse(JSON.stringify(savedMethodConfigs[calculationMethod.value]));
             if (currentUnit === 'English') {
                 setUnitSystem('English');
             } else {
@@ -170,10 +184,17 @@ const App = {
             const db = MaterialDatabase[config.value.tube.material];
             if (db) {
                 let k = db.k;
-                if (unitSystem.value === 'English') k /= HeatExchangerEngine.CONV.k_eng_to_si;
+                if (unitSystem.value === 'English') k *= HeatExchangerEngine.CONV.k_si_to_eng;
                 config.value.tube.k_material = k;
                 checkAndRunSimulation();
             }
+        };
+
+        const getMaterialKText = (materialName) => {
+            const mat = MaterialDatabase[materialName];
+            if (!mat) return '';
+            if (unitSystem.value === 'SI') return `${mat.k} W/mK`;
+            return `${(mat.k * HeatExchangerEngine.CONV.k_si_to_eng).toFixed(1)} BTU/(hr·ft·°F)`;
         };
 
         let engine = null;
@@ -234,6 +255,12 @@ const App = {
                 renderConfig.tube.outerDiameter *= C.in_to_m;
                 renderConfig.hotFluid.tempIn = HeatExchangerEngine.F_to_C(renderConfig.hotFluid.tempIn);
                 renderConfig.coldFluid.tempIn = HeatExchangerEngine.F_to_C(renderConfig.coldFluid.tempIn);
+                if (renderConfig.hotFluid.tempOut !== undefined) {
+                    renderConfig.hotFluid.tempOut = HeatExchangerEngine.F_to_C(renderConfig.hotFluid.tempOut);
+                }
+                if (renderConfig.coldFluid.tempOut !== undefined) {
+                    renderConfig.coldFluid.tempOut = HeatExchangerEngine.F_to_C(renderConfig.coldFluid.tempOut);
+                }
                 renderConfig.hotFluid.massFlow *= C.massflow_eng_to_si;
                 renderConfig.coldFluid.massFlow *= C.massflow_eng_to_si;
             }
@@ -404,6 +431,7 @@ const App = {
             toggleCalculationMethod,
             setUnitSystem,
             resetToDefaults,
+            getMaterialKText,
             aboutPdfUrl: new URL('HX_About_page 1.2.pdf', import.meta.url).href
         };
     },
@@ -511,7 +539,7 @@ const App = {
                                     <option v-for="key in materialDbKeys" :key="key" :value="key">{{ key }}</option>
                                 </select>
                                 <div style="font-size: 11px; color: #64748b; margin-top: 4px; font-style: italic;">
-                                    {{ MaterialDatabase[config.tube.material]?.description }} (k = {{ MaterialDatabase[config.tube.material]?.k }} W/mK)
+                                    {{ MaterialDatabase[config.tube.material]?.description }} (k = {{ getMaterialKText(config.tube.material) }})
                                 </div>
                             </div>
                             <div class="input-group">

@@ -12,21 +12,27 @@ export class HeatExchangerEngine {
     // SI <-> English Conversion Factors
     static CONV = {
         in_to_m: 0.0254,
-        m_to_in: 39.3701,
+        m_to_in: 1 / 0.0254,
         ft_to_m: 0.3048,
-        m_to_ft: 3.28084,
-        sqft_to_sqm: 0.092903,
-        sqm_to_sqft: 10.7639,
-        U_eng_to_si: 5.67826, // BTU/(hr·ft²·°F) -> W/m²K
-        U_si_to_eng: 0.17611, // W/m²K -> BTU/(hr·ft²·°F)
-        k_eng_to_si: 1.73073, // BTU/(hr·ft·°F) -> W/mK
-        massflow_eng_to_si: 0.000125998, // lb/hr -> kg/s
-        massflow_si_to_eng: 7936.64, // kg/s -> lb/hr
+        m_to_ft: 1 / 0.3048,
+        sqft_to_sqm: 0.3048 * 0.3048,
+        sqm_to_sqft: 1 / (0.3048 * 0.3048),
+        U_eng_to_si: 5.678263337, // BTU/(hr·ft²·°F) -> W/m²K
+        U_si_to_eng: 1 / 5.678263337, // W/m²K -> BTU/(hr·ft²·°F)
+        k_eng_to_si: 1.730734666, // BTU/(hr·ft·°F) -> W/mK
+        k_si_to_eng: 1 / 1.730734666,
+        massflow_eng_to_si: 0.45359237 / 3600, // lb/hr -> kg/s
+        massflow_si_to_eng: 3600 / 0.45359237, // kg/s -> lb/hr
         cp_eng_to_si: 4.1868, // BTU/(lb·°F) -> kJ/kgK
-        rho_eng_to_si: 16.0185, // lb/ft³ -> kg/m³
-        mu_eng_to_si: 0.00041338, // lb/(ft·hr) -> Pa·s
-        power_si_to_eng: 3412.14, // kW -> BTU/hr
-        pressure_si_to_eng: 0.145038 // kPa -> psi
+        cp_si_to_eng: 1 / 4.1868,
+        rho_eng_to_si: 0.45359237 / (0.3048 ** 3), // lb/ft³ -> kg/m³
+        rho_si_to_eng: (0.3048 ** 3) / 0.45359237,
+        mu_eng_to_si: 0.45359237 / (0.3048 * 3600), // lb/(ft·hr) -> Pa·s
+        mu_si_to_eng: (0.3048 * 3600) / 0.45359237,
+        power_si_to_eng: (3600 * 1000) / 1055.05585262, // kW -> BTU/hr
+        power_eng_to_si: 1055.05585262 / (3600 * 1000),
+        pressure_si_to_eng: 0.1450377, // kPa -> psi
+        pressure_eng_to_si: 1 / 0.1450377
     };
 
     static F_to_C(f) { return (f - 32) * 5/9; }

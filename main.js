@@ -432,7 +432,7 @@ const App = {
             setUnitSystem,
             resetToDefaults,
             getMaterialKText,
-            aboutPdfUrl: new URL('HX_About_page 1.2.pdf', import.meta.url).href
+            aboutPdfUrl: new URL('HX_About_page 1.4.pdf', import.meta.url).href
         };
     },
     template: `

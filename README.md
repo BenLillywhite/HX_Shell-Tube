@@ -13,7 +13,7 @@ This application runs using standard ES modules and HTML5 Canvas. Anyone can use
 
 **[Launch Interactive Live Demo](https://benlillywhite.github.io/HX_Shell-Tube/)** 
 
-![image alt](https://github.com/BenLillywhite/HX_Shell-Tube/blob/main/Screenshot%202026-08-18%20145555.jpg?raw=true)
+![image alt](HX%20screenshot.png)
 ---
 
 ## Key Features

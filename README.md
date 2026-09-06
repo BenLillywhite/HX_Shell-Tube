@@ -18,26 +18,10 @@ This application runs using standard ES modules and HTML5 Canvas. Anyone can use
 
 ## Key Features
 
-- **Thermodynamic NTU- Calculation Engine**:
-  - Implementation of the Number of Transfer Units ($\text{NTU}$) - Effectiveness ($\varepsilon$) method for counter-flow, parallel-flow, and multi-pass shell and tube configurations.
-  - Automatic calculation of overall heat transfer coefficients ($U$), fouling resistances ($R_f$), mean temperature differences ($\text{LMTD}$), and $F$-factor geometry corrections.
-  - Fluid flow regime determination (Laminar, Transitional, Turbulent) based on shell & tube side Reynolds numbers ($Re$).
-  - Friction factor and pressure drop calculations ($\Delta P$) for shell and tube sides.
+There are two methods of calculation in this model. The effectiveness- NTU method and the log mean temperature difference (LMTD) method. The NTU method will calculate the heat transfer rate, outlet temperatures and the effectiveness. The LMTD method will calculate the surface area required for the heat exchanger to reach some given output temperatures, the log mean temperature difference, and the correction factor F. 
 
-- **Real-Time HTML5 Canvas Visualizer**:
-  - Animated fluid particles matching mass flow rate and velocity.
-  - HSL color gradients mapping temperature profiles from inlet to outlet.
+To learn more about the calculations behind the model click "About This Model" within the live demo. 
 
-- **Engineering Controls & Databases**:
-  - **Fluid Databases**: Pre-configured thermodynamic properties ($\rho, c_p, \mu, k$) for water, engine Oil, ethylene glycol, methanol, ethanol, benzene, acetone, and Dowtherm A
-  - **Material Databases**: Thermal conductivity values ($k$) for Carbon Steel, Stainless Steel (316/304), Copper, and Titanium.
-  - **Fouling Margins**: Fouling resistances for treatable plant water, standard city tap water, cooling tower water, and muddy water.
-
-- **Unit Conversion**:
-  - Instant conversion between **Metric (SI)** ($^\circ\text{C}, \text{kg/s}, \text{kW}, \text{kPa}, \text{W/m}^2\text{K}$) and **English (Imperial)** ($^\circ\text{F}, \text{lb/hr}, \text{BTU/hr}, \text{psi}, \text{BTU/hr}\cdot\text{ft}^2\cdot^\circ\text{F}$).
-
-
----
 
 ## Technology Stack
 

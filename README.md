@@ -23,13 +23,7 @@ There are two methods of calculation in this model. The effectiveness- NTU metho
 To learn more about the calculations behind the model click "About This Model" within the live demo. 
 
 
-## Technology Stack
 
-- **Frontend Core**: Standard HTML5, CSS3, JavaScript (ES6+ Modules)
-- **UI Framework**: Vue.js 3 (ESM Browser Build - zero build step required)
-- **Visualization**: HTML5 2D Canvas API (High DPI Render Loop)
-- **Charts & Math**: Chart.js 4.x, MathJax 3.x
-- **Optional Web Server**: Python 3 / Django 6.0
 
 ---
 

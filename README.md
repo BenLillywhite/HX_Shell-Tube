@@ -1,4 +1,4 @@
-# Shell & Tube Heat Exchanger (S&T HX) Design & Simulation Suite
+# Shell & Tube Heat Exchanger Simulation Tool
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=github)](https://benlillywhite.github.io/HX_Shell-Tube/) 
 

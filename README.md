@@ -3,7 +3,7 @@
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=github)](https://benlillywhite.github.io/HX_Shell-Tube/) 
 
 
-An interactive tool for designing, sizing, and simulating simple shell and tube heat exchangers. The model uses a JavaScript based thermodynamic calculation engine to perform heat transfer and fluid flow calculations, with interactive visualizations to show the results.
+An interactive tool for designing, sizing, and simulating simple shell and tube heat exchangers. The model uses a JavaScript based thermodynamic calculation engine to perform heat transfer calculations, with interactive visualizations to show the results.
 
 ---
 
@@ -29,4 +29,4 @@ To learn more about the calculations behind the model click "About This Model" w
 
 ## License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. 

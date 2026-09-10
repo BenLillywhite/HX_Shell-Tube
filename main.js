@@ -676,7 +676,7 @@ const App = {
             <!-- Main Canvas Area -->
             <div class="main-area" style="flex-direction: column; position: relative; overflow: hidden;">
                 <div v-if="calculationMethod === 'LMTD' && config.hxType === 'other'" style="padding: 10px 16px; background: #fef3c7; color: #92400e; border-bottom: 1px solid #fbbf24; font-weight: 600; font-size: 13px; text-align: center;">
-                    Not accurate HX
+                    Inaccurate HX Arrangement
                 </div>
                 <div style="flex: 1; position: relative; width: 100%;">
                     <canvas id="hxCanvas" style="width: 100%; height: 100%; display: block; position: absolute;"></canvas>

@@ -447,7 +447,7 @@ const App = {
                         Metric (SI)
                     </button>
                     <button @click="setUnitSystem('English')" :style="{ padding: '6px 12px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', background: unitSystem === 'English' ? 'white' : 'transparent', color: unitSystem === 'English' ? '#0f172a' : '#64748b', boxShadow: unitSystem === 'English' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none' }">
-                        English (Imperial)
+                        (Imperial)
                     </button>
                 </div>
                 <button @click="toggleCalculationMethod" style="padding: 8px 12px; background: #0f766e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
